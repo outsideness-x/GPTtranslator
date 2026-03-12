@@ -36,3 +36,7 @@ pyvenv.cfg
 .DS_Store
 Thumbs.db
 *.log
+
+workspace/*
+!workspace/.gitignore
+!workspace/.gitkeep

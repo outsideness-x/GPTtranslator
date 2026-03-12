@@ -1,33 +1,65 @@
 # GPTtranslate
 
-Minimalist terminal CLI shell for the `GPTtranslate` project.
+Minimalist terminal CLI shell and production-style project skeleton for a future PDF-to-PDF book translation pipeline.
 
-## Scope of this stage
+## Architectural constraints
 
-- No translation runtime yet.
-- No API integrations.
-- No PDF pipeline.
-- Commands are scaffolded to define stable CLI UX.
+- No API and no SDK integrations.
+- Future LLM backend is only external `codex` CLI shell-out.
+- Orchestration is file-based (workspace folders + manifests + job/result artifacts).
 
-## Install (editable)
+## Current stage scope
 
-```bash
-python -m pip install -e .[dev]
+- CLI is scaffolded and stable.
+- `init` performs local ingestion of source PDF into a per-book workspace.
+- Pipeline services (`inspect`, `extract`, `translate`, `qa`, `build`) are stubs.
+- `codex` runtime execution is intentionally not implemented yet.
+
+## Architecture
+
+```text
+src/gpttranslator/
+├── app/
+│   ├── cli_app.py
+│   ├── commands/
+│   │   ├── registry.py
+│   │   ├── help.py
+│   │   ├── status.py
+│   │   ├── init.py
+│   │   ├── inspect.py
+│   │   ├── extract.py
+│   │   ├── glossary.py
+│   │   ├── translate.py
+│   │   ├── qa.py
+│   │   └── build.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   ├── paths.py
+│   │   ├── models.py
+│   │   ├── manifest.py
+│   │   └── state.py
+│   ├── pdf/
+│   │   └── ingestion.py
+│   ├── translation/
+│   │   └── backends/
+│   │       ├── base.py
+│   │       └── codex_cli.py
+│   ├── qa/
+│   ├── render/
+│   └── utils/
+├── cli.py
+└── __main__.py
+
+prompts/
+workspace/
 ```
 
-## Run
-
-```bash
-gpttranslator --help
-gpttranslator status
-gpttranslator version
-```
-
-## Commands
+## CLI commands
 
 - `help`
 - `status`
-- `init`
+- `init <path-to-pdf>`
 - `inspect`
 - `extract`
 - `glossary`
@@ -36,8 +68,45 @@ gpttranslator version
 - `build`
 - `version`
 
+## Init workspace layout
+
+Command:
+
+```bash
+gpttranslator init /path/to/book.pdf
+```
+
+Resulting structure:
+
+```text
+workspace/
+├── state.json
+└── <book_id>/
+    ├── manifest.json
+    ├── input/
+    │   └── original.pdf
+    ├── analysis/
+    ├── memory/
+    │   ├── glossary.md
+    │   ├── style_guide.md
+    │   ├── chapter_notes.md
+    │   └── translation_memory.jsonl
+    ├── translated/
+    ├── output/
+    └── logs/
+```
+
+## Install and run
+
+```bash
+./bin/pip install -e '.[dev]'
+./bin/gpttranslator --help
+./bin/gpttranslator init /path/to/book.pdf
+./bin/gpttranslator status
+```
+
 ## Tests
 
 ```bash
-pytest
+./bin/python -m pytest
 ```

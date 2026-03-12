@@ -39,12 +39,13 @@ def test_command_is_registered(command: str) -> None:
 
 
 def test_status_reports_not_initialized() -> None:
-    result = runner.invoke(app, ["status"])
+    with runner.isolated_filesystem():
+        result = runner.invoke(app, ["status"])
     assert result.exit_code == 0
     assert "not initialized" in result.stdout.lower()
 
 
-@pytest.mark.parametrize("command", ["init", "inspect", "extract", "glossary", "translate", "qa", "build"])
+@pytest.mark.parametrize("command", ["inspect", "extract", "glossary", "translate", "qa", "build"])
 def test_stub_commands(command: str) -> None:
     result = runner.invoke(app, [command])
     assert result.exit_code == 0

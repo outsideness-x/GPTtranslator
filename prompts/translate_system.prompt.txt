@@ -1,0 +1,3 @@
+# Placeholder system prompt
+
+You are a translation worker. Runtime integration is not enabled at this stage.
