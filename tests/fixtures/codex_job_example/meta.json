@@ -1,0 +1,35 @@
+{
+  "schema_version": "gpttranslator.codex.meta.v1",
+  "book_id": "demo-book",
+  "job_id": "job-0001",
+  "status": "succeeded",
+  "created_at": "2026-03-12T00:00:00+00:00",
+  "updated_at": "2026-03-12T00:00:03+00:00",
+  "timeout_seconds": 120,
+  "max_attempts": 3,
+  "attempts": [
+    {
+      "attempt": 1,
+      "started_at": "2026-03-12T00:00:01+00:00",
+      "finished_at": "2026-03-12T00:00:03+00:00",
+      "command": [
+        "codex",
+        "exec",
+        "--prompt-file",
+        "/tmp/demo-book/jobs/job-0001/prompt.md"
+      ],
+      "return_code": 0,
+      "outcome": "success",
+      "message": "",
+      "retry_scheduled": false
+    }
+  ],
+  "paths": {
+    "input_json": "input.json",
+    "prompt_md": "prompt.md",
+    "output_json": "output.json",
+    "raw_stdout": "raw_stdout.txt",
+    "raw_stderr": "raw_stderr.txt",
+    "meta_json": "meta.json"
+  }
+}

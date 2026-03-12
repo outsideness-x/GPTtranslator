@@ -1,0 +1,8 @@
+{
+  "schema_version": "gpttranslator.codex.output.v1",
+  "job_id": "job-0001",
+  "status": "ok",
+  "translated_text": "Формальная верификация может снижать количество дефектов.",
+  "notes": [],
+  "errors": []
+}

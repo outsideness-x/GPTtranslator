@@ -9,8 +9,11 @@ from .models import (
     Chunk,
     CodexJob,
     CodexResult,
+    FootnoteLink,
+    ImageAsset,
     PageInfo,
     QAFlag,
+    SectionInfo,
     TranslationRecord,
 )
 from .paths import (
@@ -32,8 +35,11 @@ __all__ = [
     "Chunk",
     "CodexJob",
     "CodexResult",
+    "FootnoteLink",
+    "ImageAsset",
     "PageInfo",
     "QAFlag",
+    "SectionInfo",
     "TranslationRecord",
     "WorkspacePaths",
     "WorkspaceState",

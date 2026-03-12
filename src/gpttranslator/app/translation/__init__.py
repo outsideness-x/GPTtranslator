@@ -1,5 +1,44 @@
 """Translation domain package."""
 
 from .backends import BaseTranslationBackend, CodexCliBackend
+from .chunker import ChunkerSettings, ChunkingError, build_translation_chunks, save_chunks_jsonl, validate_chunks
+from .protocol import (
+    INPUT_JSON_SCHEMA,
+    INPUT_SCHEMA_VERSION,
+    META_SCHEMA_VERSION,
+    OUTPUT_JSON_SCHEMA,
+    OUTPUT_SCHEMA_VERSION,
+    PROMPT_TEMPLATE_SCHEMA,
+    PROMPT_TEMPLATE_SCHEMA_VERSION,
+    RECOVERY_POLICY,
+    build_codex_job_paths,
+    build_prompt_template_payload,
+    create_codex_job,
+    load_and_validate_output_json,
+    render_codex_prompt_markdown,
+    validate_output_payload,
+)
 
-__all__ = ["BaseTranslationBackend", "CodexCliBackend"]
+__all__ = [
+    "BaseTranslationBackend",
+    "CodexCliBackend",
+    "ChunkerSettings",
+    "ChunkingError",
+    "build_translation_chunks",
+    "save_chunks_jsonl",
+    "validate_chunks",
+    "INPUT_JSON_SCHEMA",
+    "INPUT_SCHEMA_VERSION",
+    "META_SCHEMA_VERSION",
+    "OUTPUT_JSON_SCHEMA",
+    "OUTPUT_SCHEMA_VERSION",
+    "PROMPT_TEMPLATE_SCHEMA",
+    "PROMPT_TEMPLATE_SCHEMA_VERSION",
+    "RECOVERY_POLICY",
+    "build_codex_job_paths",
+    "build_prompt_template_payload",
+    "create_codex_job",
+    "load_and_validate_output_json",
+    "render_codex_prompt_markdown",
+    "validate_output_payload",
+]

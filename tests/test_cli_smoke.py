@@ -45,7 +45,7 @@ def test_status_reports_not_initialized() -> None:
     assert "not initialized" in result.stdout.lower()
 
 
-@pytest.mark.parametrize("command", ["inspect", "extract", "glossary", "translate", "qa", "build"])
+@pytest.mark.parametrize("command", ["translate", "qa", "build"])
 def test_stub_commands(command: str) -> None:
     result = runner.invoke(app, [command])
     assert result.exit_code == 0
