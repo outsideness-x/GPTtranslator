@@ -17,8 +17,13 @@ Minimalist terminal CLI shell and production-style project skeleton for a future
 - `extract` now also builds a linked `document_graph` with sections and entity relations.
 - `glossary <book_id>` manages local memory assets (`glossary.md`, `style_guide.md`, `chapter_notes.md`, `translation_memory.jsonl`).
 - `translate <book_id>` runs a production-style economy planner with adaptive chunking, TM-first routing, tiering, selective editorial/QA planning, and savings observability artifacts.
+- `translate` runs chunk/batch execution with resume/checkpoints and supports `--backend`, `--dry-run`, `--batch-size`, `--resume`, `--only-failed`, `--strict-json`.
+- After translation batches, command runs:
+  - Codex editorial pass -> `translated/edited_chunks.jsonl`
+  - deterministic consistency pass -> `translated/consistency_flags.jsonl`
 - `budget <book_id>` estimates Codex pressure heuristically without token APIs.
-- `qa` and `build` remain CLI stubs in this stage.
+- `qa <book_id>` runs local deterministic checks and can optionally run Codex semantic/terminology QA with `--codex-based`.
+- `build` remains a CLI stub in this stage.
 - Codex runtime protocol contract is implemented as file-based job artifacts + strict output validation + retry/recovery policy.
 
 ## Architecture
@@ -57,6 +62,7 @@ src/gpttranslator/
 │   │   └── document_graph.py
 │   ├── translation/
 │   │   ├── protocol.py
+│   │   ├── codex_backend.py
 │   │   ├── economy/
 │   │   │   ├── profiles.py
 │   │   │   ├── adaptive.py
@@ -89,8 +95,8 @@ workspace/
 - `extract <book_id>`
 - `glossary <book_id> [--find <term>]`
 - `budget <book_id>`
-- `translate <book_id> [--profile ...]`
-- `qa`
+- `translate <book_id> [--profile ...] [--backend codex-cli|mock] [--dry-run] [--resume]`
+- `qa <book_id> [--codex-based --backend codex-cli|mock]`
 - `build`
 - `version`
 
@@ -203,6 +209,15 @@ Artifacts written per run:
 - `workspace/<book_id>/translated/economy_plan.json`
 - `workspace/<book_id>/logs/economy_summary.json`
 - `workspace/<book_id>/logs/budget_estimate.json`
+- `workspace/<book_id>/translated/batch_manifest.json`
+- `workspace/<book_id>/translated/chunk_checkpoints.json`
+- `workspace/<book_id>/translated/translated_chunks.jsonl`
+- `workspace/<book_id>/logs/codex_jobs.jsonl`
+- `workspace/<book_id>/logs/codex_failures.jsonl`
+- `workspace/<book_id>/translated/edited_chunks.jsonl`
+- `workspace/<book_id>/translated/consistency_flags.jsonl`
+- `workspace/<book_id>/translated/qa_flags.jsonl`
+- `workspace/<book_id>/output/qa_report.md`
 
 ## Prompt templates by stage
 
@@ -229,6 +244,10 @@ Prompt rendering is implemented in `gpttranslator.app.translation.protocol.rende
 ./bin/gpttranslator extract <book_id>
 ./bin/gpttranslator budget <book_id> --profile balanced
 ./bin/gpttranslator translate <book_id> --profile economy --qa-on-risk-only --reuse-cache
+./bin/gpttranslator translate <book_id> --backend codex-cli --dry-run
+./bin/gpttranslator translate <book_id> --resume --only-failed --batch-size 16 --strict-json --strict-terminology --editorial-rewrite-level medium
+./bin/gpttranslator qa <book_id> --local-only
+./bin/gpttranslator qa <book_id> --codex-based --backend codex-cli --codex-on-risk-only
 ./bin/gpttranslator status
 ```
 
@@ -250,6 +269,15 @@ Recommended flags for savings:
 - `--qa-on-risk-only`
 - `--adaptive-chunking`
 - `--no-editorial` for exploratory drafts
+
+Batch/resume flags for long books:
+
+- `--resume` to continue interrupted runs
+- `--only-failed` to re-run only failed batches
+- `--from-batch <batch_id>` and `--to-batch <batch_id>` for bounded reruns
+- `--batch-size <N>` to constrain per-batch chunk count
+- `--strict-json` (or `--best-effort-json`) for strict schema behavior
+- `--strict-terminology`, `--preserve-literalness`, `--editorial-rewrite-level light|medium|aggressive` for editorial/consistency behavior
 
 ## Extraction JSONL schema
 

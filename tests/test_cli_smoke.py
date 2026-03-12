@@ -45,17 +45,33 @@ def test_status_reports_not_initialized() -> None:
     assert "not initialized" in result.stdout.lower()
 
 
-@pytest.mark.parametrize("command", ["qa", "build"])
+@pytest.mark.parametrize("command", ["build"])
 def test_stub_commands(command: str) -> None:
     result = runner.invoke(app, [command])
     assert result.exit_code == 0
     assert "stub command" in result.stdout.lower()
 
 
+def test_qa_help_includes_codex_flags() -> None:
+    result = runner.invoke(app, ["qa", "--help"])
+    assert result.exit_code == 0
+    assert "--codex-based" in result.stdout
+    assert "--backend" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "timeout-secon" in result.stdout
+
+
 def test_translate_help_includes_economy_flags() -> None:
     result = runner.invoke(app, ["translate", "--help"])
     assert result.exit_code == 0
     assert "--profile" in result.stdout
+    assert "--backend" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--batch-size" in result.stdout
+    assert "--strict-json" in result.stdout
+    assert "strict-termino" in result.stdout
+    assert "preserve-liter" in result.stdout
+    assert "editorial-rewr" in result.stdout
     assert "max-context" in result.stdout
     assert "--tm-first" in result.stdout
     assert "--no-editorial" in result.stdout
@@ -64,6 +80,10 @@ def test_translate_help_includes_economy_flags() -> None:
     assert "--max-retries" in result.stdout
     assert "adaptive-chunk" in result.stdout
     assert "--budget-only" in result.stdout
+    assert "--resume" in result.stdout
+    assert "--from-batch" in result.stdout
+    assert "--to-batch" in result.stdout
+    assert "--only-failed" in result.stdout
 
 
 def test_budget_help_includes_estimator_flags() -> None:

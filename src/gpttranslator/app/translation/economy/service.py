@@ -91,9 +91,10 @@ def load_book_economy_data(
         raise EconomyDataError(f"manifest not found: {manifest_path}")
 
     manifest = load_book_manifest(manifest_path)
-    chunks = list(manifest.chunks)
+    chunks_path = book_root / "analysis" / "chunks.jsonl"
+    chunks = _load_chunks_jsonl(chunks_path) if chunks_path.exists() else list(manifest.chunks)
     if not chunks:
-        chunks = _load_chunks_jsonl(book_root / "analysis" / "chunks.jsonl")
+        chunks = list(manifest.chunks)
 
     if not chunks:
         raise EconomyDataError("no chunks found; run `gpttranslator extract <book_id>` first")

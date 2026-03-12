@@ -278,9 +278,13 @@ INPUT_JSON_SCHEMA: dict[str, Any] = {
                 "chunk_ids": _string_array_schema(),
                 "block_ids": _string_array_schema(),
                 "source_text": _string_schema(min_length=1),
+                "translated_text": _string_schema(),
                 "context_before": _string_schema(),
                 "context_after": _string_schema(),
                 "footnote_markers": _string_array_schema(),
+                "strict_terminology": {"type": "boolean"},
+                "preserve_literalness": {"type": "boolean"},
+                "editorial_rewrite_level": {"type": "string", "enum": ["light", "medium", "aggressive"]},
                 "glossary": {
                     "type": "array",
                     "items": {
@@ -720,6 +724,7 @@ def create_codex_job(
     job_id: str,
     chunk_id: str,
     source_text: str,
+    translated_text: str = "",
     source_language: str = "en",
     target_language: str = "ru",
     context_before: str = "",
@@ -730,6 +735,9 @@ def create_codex_job(
     footnote_markers: list[str] | None = None,
     style_guide: str = "",
     chapter_notes: str = "",
+    strict_terminology: bool = True,
+    preserve_literalness: bool = False,
+    editorial_rewrite_level: str = "medium",
     chapter_id: str = "",
     chunk_ids: list[str] | None = None,
     template_id: str = "translate_chunk",
@@ -750,6 +758,8 @@ def create_codex_job(
         raise ValueError("timeout_seconds must be >= 1")
     if max_attempts < 1:
         raise ValueError("max_attempts must be >= 1")
+    if editorial_rewrite_level not in {"light", "medium", "aggressive"}:
+        raise ValueError("editorial_rewrite_level must be one of: light, medium, aggressive")
 
     _ = get_prompt_template_spec(template_id)
 
@@ -776,9 +786,13 @@ def create_codex_job(
             "chunk_ids": normalized_chunk_ids,
             "block_ids": normalized_block_ids,
             "source_text": source_text,
+            "translated_text": translated_text,
             "context_before": context_before,
             "context_after": context_after,
             "footnote_markers": [str(item) for item in (footnote_markers or [])],
+            "strict_terminology": bool(strict_terminology),
+            "preserve_literalness": bool(preserve_literalness),
+            "editorial_rewrite_level": editorial_rewrite_level,
             "glossary": _normalize_glossary(glossary or []),
             "style_hints": [str(item) for item in (style_hints or [])],
             "style_guide": str(style_guide),

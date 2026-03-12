@@ -1,7 +1,34 @@
 """Translation domain package."""
 
-from .backends import BaseTranslationBackend, CodexCliBackend
+from .backends import BaseTranslationBackend
 from .chunker import ChunkerSettings, ChunkingError, build_translation_chunks, save_chunks_jsonl, validate_chunks
+from .codex_backend import (
+    BackendName,
+    BackendUnavailableError,
+    ChunkTranslationRequest,
+    ChunkTranslationResult,
+    CodexCliBackend,
+    MockCodexBackend,
+    build_translation_backend,
+    parse_backend_name,
+)
+from .consistency import ConsistencyOptions, ConsistencyResult, run_consistency_pass
+from .editor import EditorialOptions, EditorialResult, run_editorial_pass
+from .batching import (
+    BATCH_MANIFEST_SCHEMA_VERSION,
+    CHECKPOINT_SCHEMA_VERSION,
+    BatchManifest,
+    BatchRecord,
+    BatchRunOptions,
+    BatchRunResult,
+    ChunkCheckpoint,
+    TranslationCheckpoint,
+    build_batch_manifest,
+    load_batch_manifest,
+    run_batch_translation,
+    save_batch_manifest,
+    select_batches_for_run,
+)
 from .protocol import (
     INPUT_JSON_SCHEMA,
     INPUT_SCHEMA_VERSION,
@@ -24,12 +51,38 @@ from .protocol import (
 
 __all__ = [
     "BaseTranslationBackend",
+    "BackendName",
+    "BackendUnavailableError",
+    "ChunkTranslationRequest",
+    "ChunkTranslationResult",
     "CodexCliBackend",
+    "MockCodexBackend",
+    "build_translation_backend",
+    "parse_backend_name",
+    "EditorialOptions",
+    "EditorialResult",
+    "run_editorial_pass",
+    "ConsistencyOptions",
+    "ConsistencyResult",
+    "run_consistency_pass",
     "ChunkerSettings",
     "ChunkingError",
     "build_translation_chunks",
     "save_chunks_jsonl",
     "validate_chunks",
+    "BATCH_MANIFEST_SCHEMA_VERSION",
+    "CHECKPOINT_SCHEMA_VERSION",
+    "BatchManifest",
+    "BatchRecord",
+    "BatchRunOptions",
+    "BatchRunResult",
+    "ChunkCheckpoint",
+    "TranslationCheckpoint",
+    "build_batch_manifest",
+    "load_batch_manifest",
+    "run_batch_translation",
+    "save_batch_manifest",
+    "select_batches_for_run",
     "INPUT_JSON_SCHEMA",
     "INPUT_SCHEMA_VERSION",
     "META_SCHEMA_VERSION",

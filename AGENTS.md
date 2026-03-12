@@ -657,3 +657,270 @@ That means:
 - allow retry with smaller chunk or richer local context
 - keep the pipeline resumable
 - make the failure inspectable in logs and job artifacts
+
+## Current version translation policy
+
+In the current project version, Codex CLI is used only for chunk-level translation.
+
+Codex must not be used yet for:
+- glossary generation
+- chapter summarization
+- semantic QA
+- editorial rewriting
+- terminology arbitration
+- document planning
+- pipeline control
+
+All orchestration, extraction, chunking, caching, resume, validation, and PDF build must be implemented as deterministic local logic.
+
+Optional model-powered passes may be added later as explicitly separated features.
+
+## Image and formula preservation rules
+
+### General rule
+
+In the current project version, images, formulas, diagrams, tables-as-graphics, and other non-prose visual objects are not treated as ordinary translatable text.
+
+The default policy is:
+
+- translate text blocks
+- preserve visual assets
+- rebuild layout around them
+- do not let the model rewrite or reinterpret visual/math content unless a separate specialized workflow explicitly exists
+
+---
+
+### Asset categories
+
+Treat the following as distinct asset classes:
+
+- raster images
+- vector illustrations
+- scanned page regions
+- display formulas
+- inline math spans
+- tables
+- charts
+- figure labels and captions
+- decorative or structural page elements
+
+Do not merge these into a single generic “block” without preserving type information.
+
+---
+
+### What must be translated
+
+Translate only where translation is actually required:
+
+- prose paragraphs
+- headings
+- captions
+- footnotes
+- endnotes
+- figure references in body text
+- textual labels that are already extracted as true text blocks
+
+---
+
+### What must be preserved as-is by default
+
+Preserve as original assets by default:
+
+- photographs
+- illustrations
+- charts as images
+- diagrams as images
+- scanned figure regions
+- display equations
+- equation numbering
+- inline mathematical notation
+- tables that cannot be safely reconstructed as structured tables
+- symbols, operators, notation, and variable names
+
+Do not send these objects to the translation model unless a dedicated specialized stage is explicitly added.
+
+---
+
+### Images
+
+Rules for images:
+
+- extract image assets separately from prose
+- preserve image identity, page origin, and bounding box
+- maintain image-to-caption linkage
+- reinsert original image assets into the rebuilt PDF
+- keep images as immutable layout objects unless resizing is required for controlled reflow
+
+Do not regenerate or reinterpret images.
+Do not ask the model to describe images unless a separate accessibility/export feature is requested.
+Do not modify figure content in v1.
+
+If an image contains embedded text, treat that as a separate future feature unless the embedded text was already extracted as real text blocks.
+
+---
+
+### Captions
+
+Captions are translatable text, but they remain structurally tied to their asset.
+
+Rules:
+- preserve caption-to-image linkage
+- preserve figure numbering
+- preserve caption order
+- keep caption text near its related asset in rebuilt layout
+- if reflow requires moving the image, move its caption with it
+
+Do not detach captions from figures.
+Do not merge multiple captions unless the source explicitly does so.
+
+---
+
+### Formulas
+
+Formulas are high-risk content and must be preserved conservatively.
+
+Default policy:
+- preserve formulas as-is
+- translate surrounding prose only
+- preserve formula numbering
+- preserve references such as “Eq. (3.2)” semantically while keeping the number unchanged
+
+Do not paraphrase math content.
+Do not rewrite notation for style.
+Do not replace equations with descriptive text.
+Do not let the model “improve” formulas.
+
+---
+
+### Display formulas
+
+For standalone equations or displayed formulas:
+
+- detect and store them as equation blocks or visual assets
+- preserve exact ordering within the page/section
+- preserve numbering labels such as `(1.2)`, `(3.7)`, etc.
+- reinsert them into the rebuilt PDF as dedicated layout objects
+
+If native equation reconstruction is not reliable, preserve the formula region as a visual asset rather than risking corruption.
+
+Controlled preservation is preferred over incorrect regeneration.
+
+---
+
+### Inline math
+
+Inline math should remain intact inside translated text.
+
+Rules:
+- protect inline formulas before translation
+- keep variables, symbols, operators, and notation unchanged
+- translate only surrounding natural language
+- restore inline math exactly after translation
+- preserve spacing and punctuation rules as safely as possible
+
+Do not allow the translation model to alter symbols, variable names, or mathematical relations unless explicitly instructed by a specialized math-aware module.
+
+---
+
+### Tables
+
+Tables require separate handling.
+
+Rules:
+- if a table is extracted as structured text reliably, it may be reconstructed as a table
+- if extraction is unreliable, preserve the table region as an asset
+- preserve table numbering and captions
+- preserve table-to-reference linkage in body text
+
+Do not flatten tables into prose by default.
+Do not trust weak extraction for complex scientific or financial tables.
+
+---
+
+### Charts and diagrams
+
+Charts and diagrams should be preserved as assets in v1.
+
+Rules:
+- preserve the visual object
+- translate only surrounding caption/reference text
+- do not rebuild chart internals unless a specialized chart-text workflow exists
+- do not let the translation model infer or redraw labels from visual appearance alone
+
+If chart labels are already extracted as text with reliable coordinates, keep them separable and explicitly marked.
+
+---
+
+### Layout behavior for preserved assets
+
+Preserved assets must behave as layout anchors.
+
+Rules:
+- treat images and formulas as non-fragmentable blocks unless a specialized rule exists
+- if surrounding Russian text expands, prefer moving the asset as a unit rather than distorting it
+- keep captions attached to their asset
+- preserve reading order around the asset
+- prefer controlled reflow over forced in-place replacement
+
+Do not squeeze translated text into the original English bounding boxes if that causes collisions with assets.
+
+---
+
+### Source model and rebuild model
+
+The PDF rebuild stage must distinguish between:
+
+- translatable text nodes
+- preserved asset nodes
+- hybrid nodes with protected spans
+
+During rebuild:
+- translated text is retypeset
+- preserved assets are reinserted
+- structural links are maintained
+- page reflow may occur, but object identity must remain stable
+
+This is a controlled reconstruction workflow, not raw text replacement inside the original PDF.
+
+---
+
+### Confidence and fallback behavior
+
+If extraction confidence is low for an image/formula/table region:
+
+- preserve the region as an asset
+- record uncertainty
+- avoid aggressive reconstruction
+- emit a QA or extraction flag if needed
+
+Prefer conservative preservation over visually clean but semantically unsafe reconstruction.
+
+---
+
+### Forbidden behaviors
+
+The system must not:
+
+- translate formula notation as ordinary prose
+- rewrite equations for style
+- regenerate images from textual description
+- silently drop figures, equations, or captions
+- detach captions from their assets
+- flatten complex tables into free text by default
+- change equation numbering
+- modify embedded scientific notation without explicit structured support
+- pretend successful reconstruction when only weak extraction was available
+
+---
+
+### Preferred v1 policy
+
+For the current project version:
+
+- translate prose, headings, captions, footnotes
+- preserve images as assets
+- preserve formulas as assets or protected math spans
+- preserve tables conservatively
+- rebuild the output PDF around those preserved objects
+
+Embedded text inside images, full chart relabeling, formula OCR-to-LaTeX reconstruction, and figure redrawing are future-stage features, not default behavior.

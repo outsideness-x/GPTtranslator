@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import typer
 
@@ -19,6 +19,14 @@ from ..translation.economy import (
 )
 from ..translation.economy.budget import BudgetEstimate
 from ..translation.economy.profiles import ProfileName
+from ..translation.codex_backend import (
+    BackendUnavailableError,
+    build_translation_backend,
+    parse_backend_name,
+)
+from ..translation.batching import BatchRunOptions, run_batch_translation
+from ..translation.consistency import ConsistencyOptions, run_consistency_pass
+from ..translation.editor import EditorialOptions, run_editorial_pass
 
 
 def register(app: typer.Typer) -> None:
@@ -69,10 +77,66 @@ def register(app: typer.Typer) -> None:
             "--adaptive-chunking/--fixed-chunking",
             help="Enable heuristic split/merge before tier routing.",
         ),
+        batch_size: int = typer.Option(
+            24,
+            "--batch-size",
+            min=1,
+            help="Maximum chunks per batch for resilient chunked execution.",
+        ),
         budget_only: bool = typer.Option(
             False,
             "--budget-only",
             help="Estimate budget and write artifacts without execution phase.",
+        ),
+        backend: str = typer.Option(
+            "codex-cli",
+            "--backend",
+            help="Translation backend: codex-cli (default) or mock.",
+        ),
+        dry_run: bool = typer.Option(
+            False,
+            "--dry-run",
+            help="Prepare jobs and backend wiring without invoking codex subprocess.",
+        ),
+        strict_json: bool = typer.Option(
+            True,
+            "--strict-json/--best-effort-json",
+            help="Require strict validated output.json (recommended).",
+        ),
+        strict_terminology: bool = typer.Option(
+            True,
+            "--strict-terminology/--relaxed-terminology",
+            help="Enforce glossary terminology strictly during editorial/consistency passes.",
+        ),
+        preserve_literalness: bool = typer.Option(
+            False,
+            "--preserve-literalness/--allow-free-rewrite",
+            help="Keep closer literalness in editorial rewrite when enabled.",
+        ),
+        editorial_rewrite_level: str = typer.Option(
+            "medium",
+            "--editorial-rewrite-level",
+            help="Editorial rewrite level: light|medium|aggressive.",
+        ),
+        resume: bool = typer.Option(
+            False,
+            "--resume",
+            help="Resume translation from existing batch/checkpoint manifests.",
+        ),
+        from_batch: str | None = typer.Option(
+            None,
+            "--from-batch",
+            help="Start execution from specific batch_id.",
+        ),
+        to_batch: str | None = typer.Option(
+            None,
+            "--to-batch",
+            help="Stop execution at specific batch_id.",
+        ),
+        only_failed: bool = typer.Option(
+            False,
+            "--only-failed",
+            help="Run only batches with failed status.",
         ),
     ) -> None:
         """Run cost-aware translation planning with economy observability."""
@@ -81,7 +145,21 @@ def register(app: typer.Typer) -> None:
         logger = get_logger("commands.translate")
 
         try:
+            backend_name = parse_backend_name(backend)
+            backend_max_attempts = max_retries or config.default_max_retries
+            selected_backend = build_translation_backend(
+                backend=backend_name,
+                codex_command=config.codex_command,
+                timeout_seconds=120,
+                max_attempts=backend_max_attempts,
+                dry_run=dry_run,
+            )
+            if backend_name == "codex-cli" and not budget_only:
+                if hasattr(selected_backend, "ensure_available") and not dry_run:
+                    selected_backend.ensure_available()
+
             profile_name = _parse_profile_name(profile)
+            rewrite_level = _parse_rewrite_level(editorial_rewrite_level)
             request = EconomyPlanRequest(
                 profile=profile_name,
                 max_context_entries=max_context_entries,
@@ -101,7 +179,7 @@ def register(app: typer.Typer) -> None:
             )
             budget_report = estimate_book_budget(data=data, request=request)
             budget_path = write_budget_report(data=data, report=budget_report, request=request)
-        except (EconomyDataError, ValueError) as exc:
+        except (EconomyDataError, ValueError, BackendUnavailableError) as exc:
             typer.secho(f"Translate failed: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
 
@@ -129,6 +207,13 @@ def register(app: typer.Typer) -> None:
 
         typer.secho("Translate economy planning completed", fg=typer.colors.GREEN)
         typer.echo(f"  Book ID                     : {book_id}")
+        typer.echo(f"  Backend                     : {backend_name}")
+        typer.echo(f"  Dry-run backend mode        : {dry_run}")
+        typer.echo(f"  Strict JSON mode            : {strict_json}")
+        typer.echo(f"  Strict terminology          : {strict_terminology}")
+        typer.echo(f"  Preserve literalness        : {preserve_literalness}")
+        typer.echo(f"  Editorial rewrite level     : {rewrite_level}")
+        typer.echo(f"  Batch size                  : {batch_size}")
         typer.echo(f"  Profile                     : {result.selected_profile.name}")
         typer.echo(f"  Chunks (before/after)       : {result.chunks_before}/{result.chunks_after}")
         typer.echo(f"  Chunks routed to Codex      : {summary.codex_chunks}")
@@ -145,7 +230,91 @@ def register(app: typer.Typer) -> None:
         typer.echo(f"  Economy plan artifact       : {result.plan_path}")
         typer.echo(f"  Economy summary artifact    : {result.summary_path}")
         typer.echo(f"  Budget estimate artifact    : {budget_path}")
-        typer.echo("  Execution mode              : planning-only (Codex execution is not run in this stage)")
+        batch_options = BatchRunOptions(
+            resume=resume,
+            from_batch=from_batch,
+            to_batch=to_batch,
+            only_failed=only_failed,
+            max_chunks_per_batch=batch_size,
+        )
+        translated_dir = data.book_root / "translated"
+        logs_dir = data.book_root / "logs"
+        typer.echo("  Execution mode              : batch processing with checkpoint/resume")
+        typer.echo("  Batch processing started...")
+
+        try:
+            batch_result = run_batch_translation(
+                book_id=book_id,
+                plans=result.plans,
+                translated_dir=translated_dir,
+                logs_dir=logs_dir,
+                backend=selected_backend,
+                options=batch_options,
+                timeout_seconds=120,
+                max_attempts=backend_max_attempts,
+                strict_json=strict_json,
+                progress_callback=lambda message: typer.echo(f"    {message}"),
+            )
+        except (ValueError, OSError) as exc:
+            typer.secho(f"Translate failed during batch execution: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
+        typer.echo("  Batch execution completed")
+        typer.echo(f"  Selected batches            : {len(batch_result.selected_batch_ids)}")
+        typer.echo(f"  Target chunks               : {batch_result.total_target_chunks}")
+        typer.echo(f"  Processed chunks            : {batch_result.processed_chunks}")
+        typer.echo(f"  Completed chunks            : {batch_result.completed_chunks}")
+        typer.echo(f"  Failed chunks               : {batch_result.failed_chunks}")
+        typer.echo(f"  Skipped chunks              : {batch_result.skipped_chunks}")
+        typer.echo(f"  Elapsed seconds             : {round(batch_result.elapsed_seconds, 1)}")
+        typer.echo(f"  Batch manifest              : {batch_result.manifest_path}")
+        typer.echo(f"  Chunk checkpoint            : {batch_result.checkpoint_path}")
+        typer.echo(f"  Translated chunks           : {batch_result.translated_chunks_path}")
+        typer.echo(f"  Codex jobs log              : {batch_result.codex_jobs_log_path}")
+        typer.echo(f"  Codex failures log          : {batch_result.codex_failures_log_path}")
+
+        typer.echo("  Editorial pass started...")
+        editorial_result = run_editorial_pass(
+            book_root=data.book_root,
+            backend=selected_backend,
+            options=EditorialOptions(
+                strict_terminology=strict_terminology,
+                preserve_literalness=preserve_literalness,
+                rewrite_level=rewrite_level,
+                resume=resume,
+            ),
+            progress_callback=lambda message: typer.echo(f"    {message}"),
+        )
+        typer.echo("  Editorial pass completed")
+        typer.echo(f"  Editorial processed         : {editorial_result.processed_chunks}")
+        typer.echo(f"  Editorial edited            : {editorial_result.edited_chunks}")
+        typer.echo(f"  Editorial failed            : {editorial_result.failed_chunks}")
+        typer.echo(f"  Editorial skipped           : {editorial_result.skipped_chunks}")
+        typer.echo(f"  Edited chunks artifact      : {editorial_result.edited_chunks_path}")
+
+        consistency_result = run_consistency_pass(
+            book_root=data.book_root,
+            options=ConsistencyOptions(
+                strict_terminology=strict_terminology,
+                preserve_literalness=preserve_literalness,
+                rewrite_level=rewrite_level,
+            ),
+        )
+        typer.echo("  Consistency pass completed")
+        typer.echo(f"  Consistency checked chunks  : {consistency_result.checked_chunks}")
+        typer.echo(f"  Consistency flags           : {consistency_result.flags_count}")
+        typer.echo(f"  Consistency conflicts       : {consistency_result.conflict_count}")
+        typer.echo(f"  Consistency flags artifact  : {consistency_result.flags_path}")
+
+        logger.info(
+            "translate batch run finished: batches=%s target_chunks=%s processed=%s completed=%s failed=%s skipped=%s",
+            len(batch_result.selected_batch_ids),
+            batch_result.total_target_chunks,
+            batch_result.processed_chunks,
+            batch_result.completed_chunks,
+            batch_result.failed_chunks,
+            batch_result.skipped_chunks,
+        )
         _print_budget_summary(book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name)
 
 
@@ -160,6 +329,15 @@ def _parse_profile_name(profile: str | None) -> ProfileName | None:
         allowed_text = ", ".join(allowed)
         raise ValueError(f"invalid profile '{profile}'; expected one of: {allowed_text}")
     return cast(ProfileName, value)
+
+
+def _parse_rewrite_level(value: str) -> Literal["light", "medium", "aggressive"]:
+    normalized = value.strip().lower()
+    allowed: tuple[Literal["light", "medium", "aggressive"], ...] = ("light", "medium", "aggressive")
+    if normalized not in allowed:
+        allowed_text = ", ".join(allowed)
+        raise ValueError(f"invalid editorial_rewrite_level '{value}'; expected one of: {allowed_text}")
+    return cast(Literal["light", "medium", "aggressive"], normalized)
 
 
 def _print_budget_summary(book_id: str, estimate: BudgetEstimate, artifact_path: Path, *, selected: str) -> None:

@@ -17,6 +17,10 @@ Perform an editorial quality pass on an already translated chunk: improve fluenc
   - `payload.style_guide`
   - `payload.chapter_notes`
   - `payload.style_hints`
+  - `payload.translated_text`
+  - `payload.strict_terminology`
+  - `payload.preserve_literalness`
+  - `payload.editorial_rewrite_level`
   - `payload.chunk_id`
   - `payload.block_ids`
   - `payload.footnote_markers`
