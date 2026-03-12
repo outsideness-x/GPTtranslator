@@ -1,9 +1,9 @@
 # GPTtranslator Prompt Template: Translate Chunk
 
-- Prompt schema version: `gpttranslator.codex.prompt_template.v1`
-- Template id: `translate_chunk`
-- Template version: `1`
-- Job id: `job-0001`
+- Prompt schema version: `{{prompt_schema_version}}`
+- Template id: `{{template_id}}`
+- Template version: `{{template_version}}`
+- Job id: `{{job_id}}`
 
 ## Objective
 
@@ -11,7 +11,7 @@ Translate one source chunk from `input.json` into high-quality Russian while pre
 
 ## Input Source
 
-- Read input JSON only from: `/tmp/demo-book/jobs/job-0001/input.json`
+- Read input JSON only from: `{{input_json_path}}`
 - Use and respect:
   - `payload.glossary`
   - `payload.style_guide`
@@ -29,6 +29,18 @@ Translate one source chunk from `input.json` into high-quality Russian while pre
    - `block_ids`
 3. Do not invent new facts and do not omit meaning.
 4. Output MUST be strict JSON matching the schema below.
-5. Write JSON only to `/tmp/demo-book/jobs/job-0001/output.json`.
+5. Write JSON only to `{{output_json_path}}`.
 6. Do not emit free-form text outside the JSON contract.
 7. Do not print translated text to stdout or stderr.
+
+## Output JSON Schema (`{{output_schema_version}}`)
+
+```json
+{{output_schema_json}}
+```
+
+## Output JSON Skeleton
+
+```json
+{{output_skeleton_json}}
+```

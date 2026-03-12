@@ -35,12 +35,50 @@ def next_attempt(job_dir: Path) -> int:
     return attempt
 
 
-def write_valid_output(output_path: Path, job_id: str, attempt: int) -> None:
+def _read_job_input(job_dir: Path) -> dict[str, object]:
+    input_path = job_dir / "input.json"
+    try:
+        payload = json.loads(input_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+def write_valid_output(output_path: Path, job_input: dict[str, object], job_id: str, attempt: int) -> None:
+    job_payload = job_input.get("job", {})
+    content_payload = job_input.get("payload", {})
+
+    template_id = "translate_chunk"
+    if isinstance(job_payload, dict):
+        raw_template_id = job_payload.get("template_id")
+        if isinstance(raw_template_id, str) and raw_template_id.strip():
+            template_id = raw_template_id
+
+    chunk_id = "unknown-chunk"
+    block_ids: list[str] = []
+    footnote_markers: list[str] = []
+    if isinstance(content_payload, dict):
+        raw_chunk_id = content_payload.get("chunk_id")
+        if isinstance(raw_chunk_id, str) and raw_chunk_id.strip():
+            chunk_id = raw_chunk_id
+        raw_block_ids = content_payload.get("block_ids")
+        if isinstance(raw_block_ids, list):
+            block_ids = [str(item) for item in raw_block_ids]
+        raw_markers = content_payload.get("footnote_markers")
+        if isinstance(raw_markers, list):
+            footnote_markers = [str(item) for item in raw_markers]
+
     payload = {
         "schema_version": OUTPUT_SCHEMA_VERSION,
+        "template_id": template_id,
         "job_id": job_id,
         "status": "ok",
+        "chunk_id": chunk_id,
+        "block_ids": block_ids,
         "translated_text": f"translated-attempt-{attempt}",
+        "preserved_footnote_markers": footnote_markers,
         "notes": [],
         "errors": [],
     }
@@ -51,6 +89,7 @@ def main() -> int:
     args = parse_args()
     job_dir = Path(args.job_dir).resolve()
     output_path = job_dir / "output.json"
+    job_input = _read_job_input(job_dir)
     attempt = next_attempt(job_dir)
     scenario = os.environ.get("MOCK_CODEX_SCENARIO", "valid")
 
@@ -85,7 +124,7 @@ def main() -> int:
         print("mock stderr schema invalid", file=sys.stderr)
         return 0
 
-    write_valid_output(output_path, args.job_id, attempt)
+    write_valid_output(output_path, job_input, args.job_id, attempt)
     print(f"mock stdout attempt {attempt}")
     print(f"mock stderr attempt {attempt}", file=sys.stderr)
     return 0

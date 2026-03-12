@@ -1,8 +1,17 @@
 {
   "schema_version": "gpttranslator.codex.output.v1",
+  "template_id": "translate_chunk",
   "job_id": "job-0001",
   "status": "ok",
-  "translated_text": "Формальная верификация может снижать количество дефектов.",
+  "chunk_id": "chunk-0001",
+  "block_ids": [
+    "block-100",
+    "block-101"
+  ],
+  "translated_text": "Формальная верификация может снижать количество дефектов.[1]",
+  "preserved_footnote_markers": [
+    "[1]"
+  ],
   "notes": [],
   "errors": []
 }

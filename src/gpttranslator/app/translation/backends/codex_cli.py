@@ -62,6 +62,7 @@ class CodexCliBackend(BaseTranslationBackend):
         """Run one Codex job using only file-based input/output contract."""
 
         paths = self._normalize_job_paths(job)
+        expected_template_id = self._resolve_expected_template_id(paths.input_json)
         timeout_seconds = max(1, int(job.timeout_seconds or self.timeout_seconds))
         max_attempts = max(1, int(job.max_attempts or self.max_attempts))
 
@@ -74,7 +75,13 @@ class CodexCliBackend(BaseTranslationBackend):
 
         last_outcome: _AttemptOutcome | None = None
         for attempt in range(1, max_attempts + 1):
-            outcome = self._run_attempt(job=job, paths=paths, attempt=attempt, timeout_seconds=timeout_seconds)
+            outcome = self._run_attempt(
+                job=job,
+                paths=paths,
+                attempt=attempt,
+                timeout_seconds=timeout_seconds,
+                expected_template_id=expected_template_id,
+            )
             last_outcome = outcome
             retry_scheduled = (
                 outcome.failure_reason is not None
@@ -140,6 +147,7 @@ class CodexCliBackend(BaseTranslationBackend):
         paths: CodexJobPaths,
         attempt: int,
         timeout_seconds: int,
+        expected_template_id: str | None,
     ) -> _AttemptOutcome:
         started_at = utcnow_iso()
         command = list(self._build_command(job))
@@ -224,7 +232,11 @@ class CodexCliBackend(BaseTranslationBackend):
                 error_message=f"Codex process exited with return code {completed.returncode}.",
             )
 
-        output_result = load_and_validate_output_json(paths.output_json, expected_job_id=job.job_id)
+        output_result = load_and_validate_output_json(
+            paths.output_json,
+            expected_job_id=job.job_id,
+            expected_template_id=expected_template_id,
+        )
         if output_result.failure_reason is not None:
             return _AttemptOutcome(
                 attempt=attempt,
@@ -308,6 +320,24 @@ class CodexCliBackend(BaseTranslationBackend):
         )
         self._save_meta(paths.meta_json, payload)
         return payload
+
+    def _resolve_expected_template_id(self, input_json_path: Path) -> str | None:
+        try:
+            payload = json.loads(input_json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return "translate_chunk"
+
+        if not isinstance(payload, dict):
+            return "translate_chunk"
+
+        job_payload = payload.get("job")
+        if not isinstance(job_payload, dict):
+            return "translate_chunk"
+
+        template_id = job_payload.get("template_id")
+        if isinstance(template_id, str) and template_id.strip():
+            return template_id
+        return "translate_chunk"
 
     def _append_attempt_logs(self, paths: CodexJobPaths, outcome: _AttemptOutcome) -> None:
         header = (

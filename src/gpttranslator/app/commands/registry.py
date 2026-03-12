@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import typer
 
+from .budget import register as register_budget
 from .build import register as register_build
 from .extract import register as register_extract
 from .glossary import register as register_glossary
@@ -30,6 +31,7 @@ def register_commands(app: typer.Typer) -> None:
         register_inspect,
         register_extract,
         register_glossary,
+        register_budget,
         register_translate,
         register_qa,
         register_build,

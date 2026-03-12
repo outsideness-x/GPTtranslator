@@ -16,7 +16,9 @@ Minimalist terminal CLI shell and production-style project skeleton for a future
 - `extract` performs fully local structure extraction and writes JSONL artifacts.
 - `extract` now also builds a linked `document_graph` with sections and entity relations.
 - `glossary <book_id>` manages local memory assets (`glossary.md`, `style_guide.md`, `chapter_notes.md`, `translation_memory.jsonl`).
-- Pipeline services (`translate`, `qa`, `build`) are still CLI stubs.
+- `translate <book_id>` runs a production-style economy planner with adaptive chunking, TM-first routing, tiering, selective editorial/QA planning, and savings observability artifacts.
+- `budget <book_id>` estimates Codex pressure heuristically without token APIs.
+- `qa` and `build` remain CLI stubs in this stage.
 - Codex runtime protocol contract is implemented as file-based job artifacts + strict output validation + retry/recovery policy.
 
 ## Architecture
@@ -33,6 +35,7 @@ src/gpttranslator/
 │   │   ├── inspect.py
 │   │   ├── extract.py
 │   │   ├── glossary.py
+│   │   ├── budget.py
 │   │   ├── translate.py
 │   │   ├── qa.py
 │   │   └── build.py
@@ -54,6 +57,16 @@ src/gpttranslator/
 │   │   └── document_graph.py
 │   ├── translation/
 │   │   ├── protocol.py
+│   │   ├── economy/
+│   │   │   ├── profiles.py
+│   │   │   ├── adaptive.py
+│   │   │   ├── context.py
+│   │   │   ├── prefilter.py
+│   │   │   ├── planner.py
+│   │   │   ├── dedupe.py
+│   │   │   ├── retry.py
+│   │   │   ├── budget.py
+│   │   │   └── service.py
 │   │   └── backends/
 │   │       ├── base.py
 │   │       └── codex_cli.py
@@ -75,7 +88,8 @@ workspace/
 - `inspect <book_id>`
 - `extract <book_id>`
 - `glossary <book_id> [--find <term>]`
-- `translate`
+- `budget <book_id>`
+- `translate <book_id> [--profile ...]`
 - `qa`
 - `build`
 - `version`
@@ -147,6 +161,64 @@ Recovery policy in `codex_cli` backend:
 
 No translation content is parsed from stdout/stderr. Only `output.json` is considered authoritative.
 
+## Economy profiles
+
+Profiles tune chunking, context size, optional passes, and retries:
+
+- `economy`
+  - larger chunks, smaller context package
+  - editorial and Codex QA mostly disabled
+  - minimal retries, strict recovery behavior
+- `balanced` (default for most books)
+  - moderate chunk size and context
+  - selective editorial and risk-only QA
+  - conservative retries
+- `quality`
+  - smaller chunks, richer context
+  - more editorial and QA coverage
+  - higher retry budget
+
+Default selection:
+
+- normal books -> `balanced`
+- very long books (roughly 450+ pages) -> `economy`
+- explicit CLI override -> `--profile economy|balanced|quality`
+
+## Cost-aware pipeline components
+
+`translate` and `budget` use deterministic local logic before any Codex work:
+
+- TM-first (`exact` then `near-exact`)
+- local pre-filter for empty/non-translatable/repeated fragments
+- glossary slicing (exact + fuzzy + chapter decisions)
+- compact style/chapter context package
+- complexity scoring + tier routing (A/B/C)
+- selective editorial / selective QA planning
+- job dedup fingerprint + output cache reuse
+- retry economy directives
+- chapter-level budget estimator and session-pressure warning
+
+Artifacts written per run:
+
+- `workspace/<book_id>/translated/economy_plan.json`
+- `workspace/<book_id>/logs/economy_summary.json`
+- `workspace/<book_id>/logs/budget_estimate.json`
+
+## Prompt templates by stage
+
+- `translate` stage:
+  - `translate_chunk` -> `prompts/translate_chunk.prompt.md`
+  - `editorial_pass` -> `prompts/editorial_pass.prompt.md` (selective post-pass on risky chunks)
+- `qa` stage:
+  - `terminology_check` -> `prompts/terminology_check.prompt.md`
+  - `semantic_qa` -> `prompts/semantic_qa.prompt.md`
+- `memory` / chapter analysis stage:
+  - `chapter_summary` -> `prompts/chapter_summary.prompt.md`
+- `glossary` stage:
+  - `glossary_update_proposal` -> `prompts/glossary_update_proposal.prompt.md`
+
+Prompt rendering is implemented in `gpttranslator.app.translation.protocol.render_prompt()` using the file-based protocol payload (`input.json` + strict output schema).
+
 ## Install and run
 
 ```bash
@@ -155,8 +227,29 @@ No translation content is parsed from stdout/stderr. Only `output.json` is consi
 ./bin/gpttranslator init /path/to/book.pdf
 ./bin/gpttranslator inspect <book_id>
 ./bin/gpttranslator extract <book_id>
+./bin/gpttranslator budget <book_id> --profile balanced
+./bin/gpttranslator translate <book_id> --profile economy --qa-on-risk-only --reuse-cache
 ./bin/gpttranslator status
 ```
+
+## Recommended long-book workflow (300+ pages)
+
+1. Run `extract` and verify chunk/graph artifacts first.
+2. Start with `budget`:
+   - `./bin/gpttranslator budget <book_id> --profile economy --adaptive-chunking`
+3. Use `translate` in economy/balanced mode with reuse enabled:
+   - `./bin/gpttranslator translate <book_id> --profile economy --tm-first --reuse-cache --qa-on-risk-only`
+4. Avoid full editorial+semantic QA on every chunk for long books.
+5. Split very large books into chapter batches if budget warns about high session pressure.
+
+Recommended flags for savings:
+
+- `--profile economy` for very long or test runs
+- `--tm-first`
+- `--reuse-cache`
+- `--qa-on-risk-only`
+- `--adaptive-chunking`
+- `--no-editorial` for exploratory drafts
 
 ## Extraction JSONL schema
 

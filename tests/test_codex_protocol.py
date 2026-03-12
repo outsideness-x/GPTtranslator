@@ -64,12 +64,19 @@ def test_create_codex_job_creates_full_contract_layout(tmp_path: Path) -> None:
     input_payload = json.loads(paths.input_json.read_text(encoding="utf-8"))
     assert input_payload["schema_version"] == INPUT_SCHEMA_VERSION
     assert input_payload["job"]["job_id"] == "job-1"
+    assert input_payload["job"]["template_id"] == "translate_chunk"
     assert input_payload["job"]["output_path"] == str(paths.output_json)
+    assert input_payload["payload"]["style_guide"] == ""
+    assert input_payload["payload"]["chapter_notes"] == ""
+    assert input_payload["payload"]["block_ids"] == []
+    assert input_payload["payload"]["footnote_markers"] == []
 
     prompt_text = paths.prompt_md.read_text(encoding="utf-8")
     assert str(paths.input_json) in prompt_text
     assert str(paths.output_json) in prompt_text
     assert OUTPUT_SCHEMA_VERSION in prompt_text
+    assert "payload.style_guide" in prompt_text
+    assert "payload.chapter_notes" in prompt_text
 
     meta_payload = json.loads(paths.meta_json.read_text(encoding="utf-8"))
     assert meta_payload["status"] == "queued"
@@ -85,9 +92,13 @@ def test_create_codex_job_creates_full_contract_layout(tmp_path: Path) -> None:
 def test_validate_output_payload_is_strict() -> None:
     valid_payload = {
         "schema_version": OUTPUT_SCHEMA_VERSION,
+        "template_id": "translate_chunk",
         "job_id": "job-1",
         "status": "ok",
+        "chunk_id": "chunk-1",
+        "block_ids": ["block-1", "block-2"],
         "translated_text": "translated",
+        "preserved_footnote_markers": ["[1]"],
         "notes": [],
         "errors": [],
     }
@@ -148,7 +159,9 @@ def test_backend_recovery_policy_retries_and_succeeds(
 
     output_payload = json.loads(Path(job.output_path).read_text(encoding="utf-8"))
     assert output_payload["schema_version"] == OUTPUT_SCHEMA_VERSION
+    assert output_payload["template_id"] == "translate_chunk"
     assert output_payload["job_id"] == job.job_id
+    assert output_payload["chunk_id"] == "chunk-1"
     assert output_payload["status"] == "ok"
 
     stdout_log = Path(job.raw_stdout_path).read_text(encoding="utf-8")

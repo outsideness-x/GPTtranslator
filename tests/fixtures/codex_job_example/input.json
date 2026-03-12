@@ -3,16 +3,28 @@
   "job": {
     "book_id": "demo-book",
     "job_id": "job-0001",
+    "template_id": "translate_chunk",
     "created_at": "2026-03-12T00:00:00+00:00",
     "source_language": "en",
     "target_language": "ru",
     "output_path": "/tmp/demo-book/jobs/job-0001/output.json"
   },
   "payload": {
+    "chapter_id": "chapter-01",
     "chunk_id": "chunk-0001",
-    "source_text": "Formal verification can reduce defects.",
-    "context_before": "",
-    "context_after": "",
+    "chunk_ids": [
+      "chunk-0001"
+    ],
+    "block_ids": [
+      "block-100",
+      "block-101"
+    ],
+    "source_text": "Formal verification can reduce defects.[1]",
+    "context_before": "Previous sentence context.",
+    "context_after": "Next sentence context.",
+    "footnote_markers": [
+      "[1]"
+    ],
     "glossary": [
       {
         "source": "defects",
@@ -22,6 +34,8 @@
     ],
     "style_hints": [
       "Use neutral technical tone."
-    ]
+    ],
+    "style_guide": "Use concise technical Russian.",
+    "chapter_notes": "Chapter focuses on software quality assurance."
   }
 }

@@ -12,20 +12,18 @@ from .core.logging import configure_logging
 console = Console()
 
 BANNER_LINES: tuple[str, ...] = (
-    "  ____ ____ _____ _____                         _       _",
-    " / ___|  _ \\_   _|_   _| __ __ _ _ __  ___  ___| | __ _| |_ ___  _ __",
-    "| |  _| |_) || |   | || '__/ _` | '_ \\/ __|/ _ \\ |/ _` | __/ _ \\| '__|",
-    "| |_| |  __/ | |   | || | | (_| | | | \\__ \\  __/ | (_| | || (_) | |",
-    " \\____|_|    |_|   |_||_|  \\__,_|_| |_|___/\\___|_|\\__,_|\\__\\___/|_|",
+    "░█▀▀░█▀█░▀█▀░░▀█▀░█▀▄░█▀█░█▀█░█▀▀░█░░░█▀█░▀█▀░█▀█░█▀▄",
+    "░█░█░█▀▀░░█░░░░█░░█▀▄░█▀█░█░█░▀▀█░█░░░█▀█░░█░░█░█░█▀▄",
+    "░▀▀▀░▀░░░░▀░░░░▀░░▀░▀░▀░▀░▀░▀░▀▀▀░▀▀▀░▀░▀░░▀░░▀▀▀░▀░▀",
 )
-BANNER_STYLES: tuple[str, ...] = ("cyan", "bright_cyan", "blue", "bright_blue", "cyan")
+BANNER_STYLES: tuple[str, ...] = ("cyan", "bright_cyan", "blue")
 
 app = typer.Typer(
     name="gpttranslator",
     add_completion=False,
     no_args_is_help=False,
     rich_markup_mode="rich",
-    help="Minimalist CLI shell for GPTtranslate.",
+    help="Minimalist CLI shell for GPTtranslator.",
     epilog="Run `gpttranslator help` or `gpttranslator --help` for command reference.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
@@ -35,12 +33,12 @@ def _print_banner() -> None:
     for line, style in zip(BANNER_LINES, BANNER_STYLES, strict=True):
         console.print(line, style=style)
     typer.echo()
-    typer.echo("GPTtranslate CLI shell")
+    typer.echo("GPTtranslator CLI shell")
 
 
 @app.callback(invoke_without_command=True)
 def root(ctx: typer.Context) -> None:
-    """GPTtranslate terminal CLI."""
+    """GPTtranslator terminal CLI."""
     config = load_config()
     configure_logging(config.log_level)
 
