@@ -86,7 +86,9 @@ def test_translate_chunk_dry_run_writes_valid_structured_output(tmp_path: Path) 
     assert Path(translated.job.meta_path).exists()
 
 
-def test_translate_chunk_calls_subprocess_and_validates_file_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_translate_chunk_calls_subprocess_and_validates_file_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("MOCK_CODEX_SCENARIO", "valid")
     backend = CodexCliBackend(
         codex_command="codex",

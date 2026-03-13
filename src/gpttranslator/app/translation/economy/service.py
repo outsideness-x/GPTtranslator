@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...core.manifest import load_book_manifest
 from ...core.models import BookManifest, Chunk
@@ -145,6 +145,7 @@ def build_economy_plan(
 
     cache_path = data.book_root / "translated" / "job_cache.json"
     job_cache = load_job_cache(cache_path) if request.reuse_cache else {}
+    planner_job_cache = cast(dict[str, object], job_cache)
 
     plans, summary = plan_chunks(
         chunks=planned_chunks,
@@ -161,7 +162,7 @@ def build_economy_plan(
             reuse_cache=request.reuse_cache,
             max_retries=effective_max_retries,
         ),
-        job_cache=job_cache,
+        job_cache=planner_job_cache,
     )
 
     plan_path = data.book_root / "translated" / "economy_plan.json"

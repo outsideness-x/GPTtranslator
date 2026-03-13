@@ -7,7 +7,9 @@ import json
 import typer
 
 from ..core.config import load_config
+from ..core.manifest import load_book_manifest, save_book_manifest
 from ..core.paths import resolve_workspace_root
+from ..core.reporting import append_run_log, collect_book_run_summary, ensure_codex_logs, write_translation_summary
 from ..qa import QAOptions, run_qa_pass
 from ..translation.codex_backend import BackendUnavailableError, build_translation_backend, parse_backend_name
 
@@ -66,6 +68,20 @@ def register(app: typer.Typer) -> None:
             typer.secho(f"QA failed: book workspace not found: {book_root}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
 
+        append_run_log(
+            book_root=book_root,
+            stage="qa",
+            status="started",
+            message="QA stage started.",
+            details={
+                "codex_based": codex_based,
+                "backend": backend,
+                "dry_run": dry_run,
+                "strict_terminology": strict_terminology,
+            },
+        )
+        ensure_codex_logs(book_root)
+
         selected_backend = None
         backend_name = "local-only"
 
@@ -83,6 +99,12 @@ def register(app: typer.Typer) -> None:
                 if parsed_backend_name == "codex-cli" and hasattr(selected_backend, "ensure_available") and not dry_run:
                     selected_backend.ensure_available()
             except (ValueError, BackendUnavailableError) as exc:
+                append_run_log(
+                    book_root=book_root,
+                    stage="qa",
+                    status="failed",
+                    message=f"QA backend setup failed: {exc}",
+                )
                 typer.secho(f"QA failed: {exc}", fg=typer.colors.RED, err=True)
                 raise typer.Exit(code=1)
 
@@ -100,8 +122,35 @@ def register(app: typer.Typer) -> None:
                 progress_callback=lambda message: typer.echo(f"    {message}"),
             )
         except (ValueError, OSError, json.JSONDecodeError) as exc:
+            append_run_log(
+                book_root=book_root,
+                stage="qa",
+                status="failed",
+                message=f"QA run failed: {exc}",
+            )
             typer.secho(f"QA failed: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
+
+        summary = collect_book_run_summary(book_root)
+        summary_path = write_translation_summary(book_root, summary)
+        manifest_path = book_root / "manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = load_book_manifest(manifest_path)
+                pipeline = manifest.metadata.setdefault("pipeline", {})
+                pipeline["qa"] = "done"
+                manifest.metadata["stage"] = "qa_done"
+                manifest.metadata["qa"] = {
+                    "total_flags": result.total_flags_count,
+                    "high_severity": result.high_severity_count,
+                    "medium_severity": result.medium_severity_count,
+                    "low_severity": result.low_severity_count,
+                    "codex_jobs": result.codex_semantic_jobs + result.codex_terminology_jobs,
+                    "summary_artifact": "output/translation_summary.md",
+                }
+                save_book_manifest(manifest_path, manifest)
+            except Exception:
+                pass
 
         typer.secho("QA completed", fg=typer.colors.GREEN)
         typer.echo(f"  Book ID                     : {book_id}")
@@ -114,10 +163,25 @@ def register(app: typer.Typer) -> None:
         typer.echo(f"  Local QA flags              : {result.local_flags_count}")
         typer.echo(f"  Codex QA flags              : {result.codex_flags_count}")
         typer.echo(f"  Total QA flags              : {result.total_flags_count}")
-        typer.echo(f"  High/Medium/Low             : {result.high_severity_count}/{result.medium_severity_count}/{result.low_severity_count}")
+        typer.echo(
+            f"  High/Medium/Low             : {result.high_severity_count}/{result.medium_severity_count}/{result.low_severity_count}"
+        )
         typer.echo(f"  Codex semantic jobs         : {result.codex_semantic_jobs}")
         typer.echo(f"  Codex terminology jobs      : {result.codex_terminology_jobs}")
         typer.echo(f"  Codex failed jobs           : {result.codex_failed_jobs}")
         typer.echo(f"  Elapsed seconds             : {round(result.elapsed_seconds, 1)}")
         typer.echo(f"  QA flags artifact           : {result.qa_flags_path}")
         typer.echo(f"  QA report artifact          : {result.qa_report_path}")
+        typer.echo(f"  Translation summary artifact: {summary_path}")
+
+        append_run_log(
+            book_root=book_root,
+            stage="qa",
+            status="completed",
+            message="QA stage completed.",
+            details={
+                "qa_flags": result.total_flags_count,
+                "codex_jobs": result.codex_semantic_jobs + result.codex_terminology_jobs,
+                "summary_path": str(summary_path),
+            },
+        )

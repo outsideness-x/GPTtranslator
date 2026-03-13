@@ -133,6 +133,11 @@ def test_translate_runs_chunk_batch_pipeline_and_writes_logs() -> None:
         assert codex_failures_path.exists()
         assert consistency_flags_path.exists()
         assert codex_failures_path.read_text(encoding="utf-8").strip() == ""
+        assert (book_root / "output" / "translation_summary.md").exists()
+        assert (book_root / "logs" / "run.log").exists()
+        summary_text = (book_root / "output" / "translation_summary.md").read_text(encoding="utf-8")
+        assert "Codex jobs" in summary_text
+        assert "Retries" in summary_text
 
         assert (book_root / "translated" / "batch_manifest.json").exists()
         assert (book_root / "translated" / "chunk_checkpoints.json").exists()

@@ -155,7 +155,9 @@ def run_consistency_pass(
     )
 
 
-def _make_flag(*, chunk_id: str, flag_type: str, severity: str, message: str, details: dict[str, Any]) -> dict[str, Any]:
+def _make_flag(
+    *, chunk_id: str, flag_type: str, severity: str, message: str, details: dict[str, Any]
+) -> dict[str, Any]:
     return {
         "chunk_id": chunk_id,
         "type": flag_type,

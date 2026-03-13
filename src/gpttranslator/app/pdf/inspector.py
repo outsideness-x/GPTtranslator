@@ -71,6 +71,7 @@ class InspectionReport:
             "page_count": self.page_count,
             "has_text_layer": self.has_text_layer,
             "likely_scan": self.likely_scan,
+            "likely_scanned": self.likely_scan,
             "has_images": self.has_images,
             "possible_footnotes_or_endnotes": self.possible_footnotes_or_endnotes,
             "has_headers_or_footers": self.has_headers_or_footers,

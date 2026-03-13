@@ -9,6 +9,16 @@ import typer
 
 from ..core.config import load_config
 from ..core.logging import get_logger
+from ..core.manifest import load_book_manifest, save_book_manifest
+from ..core.paths import resolve_workspace_root
+from ..core.reporting import append_run_log, collect_book_run_summary, ensure_codex_logs, write_translation_summary
+from ..translation.batching import BatchRunOptions, run_batch_translation
+from ..translation.codex_backend import (
+    BackendUnavailableError,
+    build_translation_backend,
+    parse_backend_name,
+)
+from ..translation.consistency import ConsistencyOptions, run_consistency_pass
 from ..translation.economy import (
     EconomyDataError,
     EconomyPlanRequest,
@@ -19,13 +29,6 @@ from ..translation.economy import (
 )
 from ..translation.economy.budget import BudgetEstimate
 from ..translation.economy.profiles import ProfileName
-from ..translation.codex_backend import (
-    BackendUnavailableError,
-    build_translation_backend,
-    parse_backend_name,
-)
-from ..translation.batching import BatchRunOptions, run_batch_translation
-from ..translation.consistency import ConsistencyOptions, run_consistency_pass
 from ..translation.editor import EditorialOptions, run_editorial_pass
 
 
@@ -143,6 +146,22 @@ def register(app: typer.Typer) -> None:
 
         config = load_config()
         logger = get_logger("commands.translate")
+        workspace_root = resolve_workspace_root(config.project_root, config.workspace_dir_name)
+        book_root = workspace_root / book_id
+
+        append_run_log(
+            book_root=book_root,
+            stage="translate",
+            status="started",
+            message="Translation pipeline started.",
+            details={
+                "backend": backend,
+                "dry_run": dry_run,
+                "profile": profile or "auto",
+                "batch_size": batch_size,
+            },
+        )
+        ensure_codex_logs(book_root)
 
         try:
             backend_name = parse_backend_name(backend)
@@ -180,29 +199,53 @@ def register(app: typer.Typer) -> None:
             budget_report = estimate_book_budget(data=data, request=request)
             budget_path = write_budget_report(data=data, report=budget_report, request=request)
         except (EconomyDataError, ValueError, BackendUnavailableError) as exc:
+            append_run_log(
+                book_root=book_root,
+                stage="translate",
+                status="failed",
+                message=f"Translation setup failed: {exc}",
+            )
             typer.secho(f"Translate failed: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
 
         if budget_only:
+            ensure_codex_logs(data.book_root)
+            summary = collect_book_run_summary(data.book_root)
+            summary_path = write_translation_summary(data.book_root, summary)
+            append_run_log(
+                book_root=data.book_root,
+                stage="translate",
+                status="budget_only",
+                message="Budget-only planning completed.",
+                details={"summary_path": str(summary_path)},
+            )
             typer.secho("Budget-only translation planning completed", fg=typer.colors.GREEN)
-            _print_budget_summary(book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name)
+            _print_budget_summary(
+                book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name
+            )
             return
 
         try:
             result = build_economy_plan(data=data, request=request)
         except (EconomyDataError, ValueError, OSError) as exc:
+            append_run_log(
+                book_root=data.book_root,
+                stage="translate",
+                status="failed",
+                message=f"Economy planning failed: {exc}",
+            )
             typer.secho(f"Translate failed: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
 
-        summary = result.summary
+        economy_summary = result.summary
         logger.info(
             "translate economy plan: book_id=%s profile=%s codex=%s tm_reuse=%s cache_hits=%s savings=%s%%",
             book_id,
             result.selected_profile.name,
-            summary.codex_chunks,
-            summary.tm_reuse_chunks,
-            summary.cache_hits,
-            summary.estimated_savings_percent(),
+            economy_summary.codex_chunks,
+            economy_summary.tm_reuse_chunks,
+            economy_summary.cache_hits,
+            economy_summary.estimated_savings_percent(),
         )
 
         typer.secho("Translate economy planning completed", fg=typer.colors.GREEN)
@@ -216,17 +259,17 @@ def register(app: typer.Typer) -> None:
         typer.echo(f"  Batch size                  : {batch_size}")
         typer.echo(f"  Profile                     : {result.selected_profile.name}")
         typer.echo(f"  Chunks (before/after)       : {result.chunks_before}/{result.chunks_after}")
-        typer.echo(f"  Chunks routed to Codex      : {summary.codex_chunks}")
-        typer.echo(f"  Translation-memory reuse    : {summary.tm_reuse_chunks}")
-        typer.echo(f"  Repeated local reuse        : {summary.repeated_reuse_chunks}")
-        typer.echo(f"  Job cache hits              : {summary.cache_hits}")
-        typer.echo(f"  Editorial jobs planned      : {summary.editorial_jobs}")
-        typer.echo(f"  Editorial skipped           : {summary.editorial_skipped}")
-        typer.echo(f"  QA jobs planned             : {summary.qa_jobs}")
-        typer.echo(f"  QA skipped                  : {summary.qa_skipped}")
-        typer.echo(f"  Retries avoided             : {summary.retries_avoided}")
-        typer.echo(f"  Avg context weight          : {summary.avg_context_weight}")
-        typer.echo(f"  Estimated savings           : {summary.estimated_savings_percent()}%")
+        typer.echo(f"  Chunks routed to Codex      : {economy_summary.codex_chunks}")
+        typer.echo(f"  Translation-memory reuse    : {economy_summary.tm_reuse_chunks}")
+        typer.echo(f"  Repeated local reuse        : {economy_summary.repeated_reuse_chunks}")
+        typer.echo(f"  Job cache hits              : {economy_summary.cache_hits}")
+        typer.echo(f"  Editorial jobs planned      : {economy_summary.editorial_jobs}")
+        typer.echo(f"  Editorial skipped           : {economy_summary.editorial_skipped}")
+        typer.echo(f"  QA jobs planned             : {economy_summary.qa_jobs}")
+        typer.echo(f"  QA skipped                  : {economy_summary.qa_skipped}")
+        typer.echo(f"  Retries avoided             : {economy_summary.retries_avoided}")
+        typer.echo(f"  Avg context weight          : {economy_summary.avg_context_weight}")
+        typer.echo(f"  Estimated savings           : {economy_summary.estimated_savings_percent()}%")
         typer.echo(f"  Economy plan artifact       : {result.plan_path}")
         typer.echo(f"  Economy summary artifact    : {result.summary_path}")
         typer.echo(f"  Budget estimate artifact    : {budget_path}")
@@ -256,6 +299,12 @@ def register(app: typer.Typer) -> None:
                 progress_callback=lambda message: typer.echo(f"    {message}"),
             )
         except (ValueError, OSError) as exc:
+            append_run_log(
+                book_root=data.book_root,
+                stage="translate",
+                status="failed",
+                message=f"Batch execution failed: {exc}",
+            )
             typer.secho(f"Translate failed during batch execution: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
 
@@ -315,7 +364,50 @@ def register(app: typer.Typer) -> None:
             batch_result.failed_chunks,
             batch_result.skipped_chunks,
         )
-        _print_budget_summary(book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name)
+
+        ensure_codex_logs(data.book_root)
+        run_summary = collect_book_run_summary(data.book_root)
+        summary_path = write_translation_summary(data.book_root, run_summary)
+
+        manifest_path = data.book_root / "manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = load_book_manifest(manifest_path)
+                pipeline = manifest.metadata.setdefault("pipeline", {})
+                pipeline["translate"] = "done" if batch_result.failed_chunks == 0 else "done_with_failures"
+                manifest.metadata["stage"] = (
+                    "translated" if batch_result.failed_chunks == 0 else "translated_with_failures"
+                )
+                manifest.metadata["translation"] = {
+                    "processed_chunks": batch_result.processed_chunks,
+                    "completed_chunks": batch_result.completed_chunks,
+                    "failed_chunks": batch_result.failed_chunks,
+                    "skipped_chunks": batch_result.skipped_chunks,
+                    "codex_jobs": run_summary.codex_jobs_count,
+                    "retries": run_summary.retries_count,
+                    "consistency_flags": consistency_result.flags_count,
+                    "summary_artifact": "output/translation_summary.md",
+                }
+                save_book_manifest(manifest_path, manifest)
+            except Exception as exc:  # pragma: no cover - defensive manifest write protection
+                logger.warning("unable to update manifest after translate: %s", exc)
+
+        append_run_log(
+            book_root=data.book_root,
+            stage="translate",
+            status="completed",
+            message="Translation pipeline completed.",
+            details={
+                "chunks": run_summary.chunk_count,
+                "codex_jobs": run_summary.codex_jobs_count,
+                "retries": run_summary.retries_count,
+                "summary_path": str(summary_path),
+            },
+        )
+        typer.echo(f"  Translation summary artifact: {summary_path}")
+        _print_budget_summary(
+            book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name
+        )
 
 
 def _parse_profile_name(profile: str | None) -> ProfileName | None:

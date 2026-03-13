@@ -10,9 +10,9 @@ from typer.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.cli import app
-
 from _pdf_test_utils import write_corrupted_pdf_with_signature, write_simple_text_pdf
+
+from gpttranslator.cli import app
 
 runner = CliRunner()
 

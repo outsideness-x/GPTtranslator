@@ -10,9 +10,9 @@ from typer.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.cli import app
-
 from _pdf_test_utils import write_simple_text_pdf
+
+from gpttranslator.cli import app
 
 runner = CliRunner()
 
@@ -72,8 +72,7 @@ def test_glossary_command_searches_glossary_and_tm() -> None:
 
         tm_path = memory_dir / "translation_memory.jsonl"
         tm_path.write_text(
-            json.dumps({"source_text": "algorithmic bias", "target_text": "algorithmic bias"})
-            + "\n",
+            json.dumps({"source_text": "algorithmic bias", "target_text": "algorithmic bias"}) + "\n",
             encoding="utf-8",
         )
 

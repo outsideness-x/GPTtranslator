@@ -71,11 +71,7 @@ def build_translation_chunks(
             source_text = "\n".join(block.text for block in member_blocks).strip()
 
         page_values = [block.page_num for block in member_blocks]
-        page_range = (
-            (min(page_values), max(page_values))
-            if page_values
-            else (1, 1)
-        )
+        page_range = (min(page_values), max(page_values)) if page_values else (1, 1)
 
         footnote_refs = _collect_chunk_footnote_refs(draft.block_ids, refs_by_block)
 

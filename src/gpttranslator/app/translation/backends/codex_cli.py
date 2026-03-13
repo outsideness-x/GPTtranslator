@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from ...core.models import CodexJob, CodexResult
-from .base import BaseTranslationBackend
 from ..protocol import (
     CodexJobPaths,
     build_initial_meta_payload,
@@ -19,6 +18,7 @@ from ..protocol import (
     utcnow_iso,
     write_json_file,
 )
+from .base import BaseTranslationBackend
 
 CommandBuilder = Callable[[CodexJob], Sequence[str]]
 

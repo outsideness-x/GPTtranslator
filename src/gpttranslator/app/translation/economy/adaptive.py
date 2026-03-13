@@ -36,10 +36,12 @@ def _split_complex_chunks(chunks: list[Chunk], *, profile: EconomyProfile) -> li
             for index, group in enumerate(groups, start=1):
                 text = lines[index - 1] if index - 1 < len(lines) else chunk.source_text
                 metadata = dict(chunk.metadata)
-                metadata.update({
-                    "adaptive": "split",
-                    "adaptive_parent": chunk.chunk_id,
-                })
+                metadata.update(
+                    {
+                        "adaptive": "split",
+                        "adaptive_parent": chunk.chunk_id,
+                    }
+                )
                 adapted.append(
                     replace(
                         chunk,
@@ -77,10 +79,12 @@ def _merge_simple_chunks(chunks: list[Chunk], *, profile: EconomyProfile) -> lis
         combined_ids = [*current.block_ids, *nxt.block_ids]
         combined_footnotes = [*current.footnote_refs, *nxt.footnote_refs]
         metadata = dict(current.metadata)
-        metadata.update({
-            "adaptive": "merge",
-            "adaptive_children": [current.chunk_id, nxt.chunk_id],
-        })
+        metadata.update(
+            {
+                "adaptive": "merge",
+                "adaptive_children": [current.chunk_id, nxt.chunk_id],
+            }
+        )
 
         merged_chunk = replace(
             current,

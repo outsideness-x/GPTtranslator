@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from ..core.models import Chunk, QAFlag
+from ..core.reporting import ensure_codex_logs
 from ..memory.glossary_manager import GlossaryEntry, parse_glossary_entries
 from ..translation.codex_backend import ChunkTranslationRequest
 from ..translation.economy.context import slice_glossary_entries
@@ -89,6 +90,7 @@ def run_qa_pass(
     qa_report_path = output_dir / "qa_report.md"
     codex_jobs_log_path = logs_dir / "codex_jobs.jsonl"
     codex_failures_log_path = logs_dir / "codex_failures.jsonl"
+    ensure_codex_logs(book_root)
 
     chunks_map = _load_chunks_map(analysis_chunks_path)
     if not analysis_chunks_path.exists():
@@ -166,16 +168,16 @@ def run_qa_pass(
         codex_processed = 0
         for chunk_id in risky_chunks:
             translated_row = translated_map.get(chunk_id)
-            chunk = chunks_map.get(chunk_id)
-            if translated_row is None or chunk is None:
+            chunk_item = chunks_map.get(chunk_id)
+            if translated_row is None or chunk_item is None:
                 continue
             target_text = str(translated_row.get("target_text", ""))
-            glossary_subset = _build_glossary_subset(chunk.source_text, glossary_entries)
+            glossary_subset = _build_glossary_subset(chunk_item.source_text, glossary_entries)
 
             semantic_request = ChunkTranslationRequest(
                 workspace_root=book_root.parent,
                 book_id=book_root.name,
-                chunk=chunk,
+                chunk=chunk_item,
                 glossary=glossary_subset,
                 style_hints=["qa_stage=semantic_qa", "strict_json=true"],
                 style_guide=style_guide,
@@ -214,7 +216,9 @@ def run_qa_pass(
                 flags.extend(semantic_flags)
             else:
                 codex_failed_jobs += 1
-                failure_reason = semantic_result.result.failure_reason or semantic_result.result.stderr or "semantic_qa_failed"
+                failure_reason = (
+                    semantic_result.result.failure_reason or semantic_result.result.stderr or "semantic_qa_failed"
+                )
                 _append_jsonl(
                     codex_failures_log_path,
                     {
@@ -241,7 +245,7 @@ def run_qa_pass(
             terminology_request = ChunkTranslationRequest(
                 workspace_root=book_root.parent,
                 book_id=book_root.name,
-                chunk=chunk,
+                chunk=chunk_item,
                 glossary=glossary_subset,
                 style_hints=["qa_stage=terminology_check", "strict_json=true"],
                 style_guide=style_guide,
@@ -676,7 +680,9 @@ def _build_glossary_subset(source_text: str, entries: list[GlossaryEntry]) -> li
     return selected
 
 
-def _load_completed_translation_map(*, translated_path: Path, edited_path: Path) -> tuple[dict[str, dict[str, Any]], str]:
+def _load_completed_translation_map(
+    *, translated_path: Path, edited_path: Path
+) -> tuple[dict[str, dict[str, Any]], str]:
     translated_rows = _load_jsonl(translated_path)
     edited_rows = _load_jsonl(edited_path)
 
@@ -699,7 +705,9 @@ def _load_completed_translation_map(*, translated_path: Path, edited_path: Path)
         copy["_source_artifact"] = "edited_chunks.jsonl"
         result[chunk_id] = copy
 
-    source_artifact = "edited_chunks.jsonl + fallback translated_chunks.jsonl" if edited_rows else "translated_chunks.jsonl"
+    source_artifact = (
+        "edited_chunks.jsonl + fallback translated_chunks.jsonl" if edited_rows else "translated_chunks.jsonl"
+    )
     return result, source_artifact
 
 

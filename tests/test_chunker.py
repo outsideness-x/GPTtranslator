@@ -10,6 +10,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from _pdf_test_utils import write_multi_paragraph_pdf, write_simple_text_pdf
+
 from gpttranslator.app.pdf.document_graph import build_document_graph
 from gpttranslator.app.pdf.extractor import extract_pdf_structure
 from gpttranslator.app.translation.chunker import (
@@ -19,8 +21,6 @@ from gpttranslator.app.translation.chunker import (
     save_chunks_jsonl,
     validate_chunks,
 )
-
-from _pdf_test_utils import write_multi_paragraph_pdf, write_simple_text_pdf
 
 
 def test_chunker_builds_chunks_with_required_fields_and_refs(tmp_path: Path) -> None:

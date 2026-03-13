@@ -37,7 +37,9 @@ def _string_array_schema() -> dict[str, Any]:
     return {"type": "array", "items": {"type": "string"}}
 
 
-def _common_output_schema(template_id: str, title: str, extra_properties: dict[str, Any], extra_required: list[str]) -> dict[str, Any]:
+def _common_output_schema(
+    template_id: str, title: str, extra_properties: dict[str, Any], extra_required: list[str]
+) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "schema_version": {"type": "string", "const": OUTPUT_SCHEMA_VERSION},
         "template_id": {"type": "string", "const": template_id},
@@ -157,7 +159,14 @@ PROMPT_OUTPUT_SCHEMAS: dict[str, dict[str, Any]] = {
             "key_points": _string_array_schema(),
             "preserved_footnote_markers": _string_array_schema(),
         },
-        extra_required=["chapter_id", "chunk_ids", "block_ids", "summary_markdown", "key_points", "preserved_footnote_markers"],
+        extra_required=[
+            "chapter_id",
+            "chunk_ids",
+            "block_ids",
+            "summary_markdown",
+            "key_points",
+            "preserved_footnote_markers",
+        ],
     ),
     "glossary_update_proposal": _common_output_schema(
         template_id="glossary_update_proposal",
@@ -584,9 +593,7 @@ def validate_prompt_template_payload(payload: dict[str, Any]) -> list[str]:
     if isinstance(template_id, str) and template_id in PROMPT_TEMPLATE_SPECS:
         expected_version = PROMPT_TEMPLATE_SPECS[template_id].template_version
         if payload.get("template_version") != expected_version:
-            errors.append(
-                f"prompt.template_version must be {expected_version} for template_id '{template_id}'"
-            )
+            errors.append(f"prompt.template_version must be {expected_version} for template_id '{template_id}'")
     elif isinstance(template_id, str):
         available = ", ".join(sorted(PROMPT_TEMPLATE_SPECS))
         errors.append(f"prompt.template_id must be one of: {available}")

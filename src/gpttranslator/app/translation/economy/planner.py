@@ -199,11 +199,7 @@ def plan_chunks(
         if options.reuse_cache and isinstance(job_cache, dict):
             from .dedupe import JobCacheRecord
 
-            typed_cache = {
-                key: value
-                for key, value in job_cache.items()
-                if isinstance(value, JobCacheRecord)
-            }
+            typed_cache = {key: value for key, value in job_cache.items() if isinstance(value, JobCacheRecord)}
             cache_hit_output = find_cache_hit(
                 cache=typed_cache,
                 fingerprint=fingerprint,

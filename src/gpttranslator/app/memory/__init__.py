@@ -37,4 +37,5 @@ __all__ = [
     "validate_chapter_notes_structure",
     "validate_glossary_structure",
     "validate_style_guide_structure",
+    "validate_translation_memory",
 ]

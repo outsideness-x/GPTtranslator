@@ -88,11 +88,11 @@ def register(app: typer.Typer) -> None:
             tm_hits = find_in_translation_memory(paths.translation_memory_path, find, limit=limit)
             typer.echo(f"  Search query           : {find}")
             typer.echo(f"  Glossary matches       : {len(glossary_hits)}")
-            for match in glossary_hits:
-                typer.echo(f"    - {match.source_term} -> {match.target_term}")
+            for glossary_match in glossary_hits:
+                typer.echo(f"    - {glossary_match.source_term} -> {glossary_match.target_term}")
             typer.echo(f"  TM matches             : {len(tm_hits)}")
-            for match in tm_hits:
-                typer.echo(f"    - {match.source_text} -> {match.target_text}")
+            for tm_match in tm_hits:
+                typer.echo(f"    - {tm_match.source_text} -> {tm_match.target_text}")
 
         if validation_issues:
             typer.secho("Validation issues:", fg=typer.colors.YELLOW)

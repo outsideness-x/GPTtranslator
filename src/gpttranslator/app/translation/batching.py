@@ -6,7 +6,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, cast
 
 from .codex_backend import ChunkTranslationRequest
 from .economy.planner import ChunkPlan
@@ -51,7 +51,7 @@ class BatchRecord:
         return cls(
             batch_id=str(payload.get("batch_id", "")),
             chunk_ids=[str(item) for item in payload.get("chunk_ids", [])],
-            status=str(payload.get("status", "pending")),
+            status=_coerce_batch_status(payload.get("status", "pending")),
             attempts=int(payload.get("attempts", 0)),
             last_error=str(payload.get("last_error", "")),
             started_at=str(payload.get("started_at", "")),
@@ -127,7 +127,7 @@ class ChunkCheckpoint:
         return cls(
             chunk_id=str(payload.get("chunk_id", "")),
             batch_id=str(payload.get("batch_id", "")),
-            status=str(payload.get("status", "pending")),
+            status=_coerce_checkpoint_status(payload.get("status", "pending")),
             source=str(payload.get("source", "")),
             attempts=int(payload.get("attempts", 0)),
             job_id=str(payload.get("job_id", "")),
@@ -386,7 +386,11 @@ def run_batch_translation(
         )
         save_batch_manifest(manifest_path, manifest)
 
-    checkpoint = load_checkpoint(checkpoint_path, book_id=book_id) if options.resume else TranslationCheckpoint.empty(book_id=book_id)
+    checkpoint = (
+        load_checkpoint(checkpoint_path, book_id=book_id)
+        if options.resume
+        else TranslationCheckpoint.empty(book_id=book_id)
+    )
     if not options.resume:
         save_checkpoint(checkpoint_path, checkpoint)
 
@@ -850,3 +854,17 @@ def _slugify(value: str) -> str:
     text = "".join(ch if ch.isalnum() else "-" for ch in value.lower())
     compact = "-".join(part for part in text.split("-") if part)
     return compact or "batch"
+
+
+def _coerce_batch_status(value: Any) -> BatchStatus:
+    status = str(value).strip().lower()
+    if status in {"pending", "running", "completed", "failed"}:
+        return cast(BatchStatus, status)
+    return "pending"
+
+
+def _coerce_checkpoint_status(value: Any) -> CheckpointStatus:
+    status = str(value).strip().lower()
+    if status in {"pending", "completed", "failed", "skipped"}:
+        return cast(CheckpointStatus, status)
+    return "pending"

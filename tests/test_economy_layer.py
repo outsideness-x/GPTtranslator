@@ -336,7 +336,9 @@ def test_economy_service_builds_plan_and_budget_artifacts(tmp_path: Path) -> Non
 
     chunks = [
         _chunk(chunk_id="chunk-1", text="Exact reusable sentence."),
-        _chunk(chunk_id="chunk-2", text="A complex clause with [1] and formula x = y + z.", footnotes=[{"marker": "[1]"}]),
+        _chunk(
+            chunk_id="chunk-2", text="A complex clause with [1] and formula x = y + z.", footnotes=[{"marker": "[1]"}]
+        ),
     ]
     manifest = BookManifest(
         book_id=book_id,
@@ -351,7 +353,9 @@ def test_economy_service_builds_plan_and_budget_artifacts(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     (memory_dir / "style_guide.md").write_text("# Style Guide\n- Keep formal style.\n", encoding="utf-8")
-    (memory_dir / "chapter_notes.md").write_text("# Chapter Notes\n\n## Global Notes\n- Preserve markers.\n", encoding="utf-8")
+    (memory_dir / "chapter_notes.md").write_text(
+        "# Chapter Notes\n\n## Global Notes\n- Preserve markers.\n", encoding="utf-8"
+    )
     (memory_dir / "translation_memory.jsonl").write_text(
         json.dumps({"source_text": "Exact reusable sentence.", "target_text": "Точное переиспользуемое предложение."})
         + "\n",

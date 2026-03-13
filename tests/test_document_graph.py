@@ -9,10 +9,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from _pdf_test_utils import write_pdf_with_caption_and_image, write_simple_text_pdf
+
 from gpttranslator.app.pdf.document_graph import DocumentGraphError, build_document_graph, validate_document_graph
 from gpttranslator.app.pdf.extractor import extract_pdf_structure
-
-from _pdf_test_utils import write_pdf_with_caption_and_image, write_simple_text_pdf
 
 
 def test_build_document_graph_creates_sections_adjacency_and_footnote_links(tmp_path: Path) -> None:
@@ -32,10 +32,7 @@ def test_build_document_graph_creates_sections_adjacency_and_footnote_links(tmp_
         assert block.prev_block_id == expected_prev
         assert block.next_block_id == expected_next
 
-    assert any(
-        link.marker_block_id is not None and link.body_block_id is not None
-        for link in graph.footnote_links
-    )
+    assert any(link.marker_block_id is not None and link.body_block_id is not None for link in graph.footnote_links)
 
     validate_document_graph(graph)
 

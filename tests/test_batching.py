@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.app.core.models import Chunk
+from gpttranslator.app.core.models import Chunk, CodexResult
 from gpttranslator.app.translation.batching import (
     BatchManifest,
     BatchRecord,
@@ -21,12 +21,10 @@ from gpttranslator.app.translation.batching import (
     save_batch_manifest,
     select_batches_for_run,
 )
-from gpttranslator.app.translation.codex_backend import MockCodexBackend
-from gpttranslator.app.translation.codex_backend import ChunkTranslationResult
+from gpttranslator.app.translation.codex_backend import ChunkTranslationResult, MockCodexBackend
 from gpttranslator.app.translation.economy.complexity import ComplexityAssessment, ComplexityFeatures
 from gpttranslator.app.translation.economy.planner import ChunkPlan
 from gpttranslator.app.translation.economy.prefilter import PreFilterDecision
-from gpttranslator.app.core.models import CodexResult
 
 
 def _plan(chunk_id: str, chapter_id: str | None, action: str = "codex") -> ChunkPlan:

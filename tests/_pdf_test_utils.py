@@ -109,6 +109,42 @@ def write_pdf_with_caption_and_image(path: Path) -> None:
         writer.write(file)
 
 
+def write_image_only_pdf(path: Path, page_count: int = 2) -> None:
+    """Create image-only PDF pages without a text layer (scan-like fixture)."""
+
+    writer = PdfWriter()
+
+    image_stream = DecodedStreamObject()
+    image_stream.set_data(bytes([220, 220, 220]))
+    image_stream.update(
+        {
+            NameObject("/Type"): NameObject("/XObject"),
+            NameObject("/Subtype"): NameObject("/Image"),
+            NameObject("/Width"): NumberObject(1),
+            NameObject("/Height"): NumberObject(1),
+            NameObject("/ColorSpace"): NameObject("/DeviceRGB"),
+            NameObject("/BitsPerComponent"): NumberObject(8),
+        }
+    )
+    image_ref = writer._add_object(image_stream)
+
+    for _ in range(max(1, page_count)):
+        page = writer.add_blank_page(width=595, height=842)
+        resources = DictionaryObject(
+            {
+                NameObject("/XObject"): DictionaryObject({NameObject("/Im1"): image_ref}),
+            }
+        )
+        page[NameObject("/Resources")] = resources
+
+        stream = DecodedStreamObject()
+        stream.set_data("q 595 0 0 842 0 0 cm /Im1 Do Q".encode("latin-1"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+
+    with path.open("wb") as file:
+        writer.write(file)
+
+
 def write_multi_paragraph_pdf(path: Path, paragraph_count: int = 6) -> None:
     """Create one-page PDF with multiple plain paragraphs."""
 

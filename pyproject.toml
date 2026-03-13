@@ -18,6 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0,<9.0",
+  "ruff>=0.6,<1.0",
+  "mypy>=1.10,<2.0",
 ]
 
 [project.scripts]
@@ -32,3 +34,29 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+  "workspace",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+]
+ignore = [
+  "E501",
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+no_implicit_optional = false

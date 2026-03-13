@@ -56,7 +56,9 @@ def test_editorial_pass_creates_edited_chunks_with_mock_backend(tmp_path: Path) 
         encoding="utf-8",
     )
     (book_root / "memory" / "style_guide.md").write_text("# Style Guide\n- Keep compact style.\n", encoding="utf-8")
-    (book_root / "memory" / "chapter_notes.md").write_text("# Chapter Notes\n\n## Global Notes\n- Keep markers.\n", encoding="utf-8")
+    (book_root / "memory" / "chapter_notes.md").write_text(
+        "# Chapter Notes\n\n## Global Notes\n- Keep markers.\n", encoding="utf-8"
+    )
 
     result = run_editorial_pass(
         book_root=book_root,

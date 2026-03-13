@@ -106,7 +106,9 @@ def estimate_budget(
             continue
 
         codex_jobs += 1
-        is_high_risk = tier == "C" or "terminology_dense" in assessment.risk_flags or "footnote_markers" in assessment.risk_flags
+        is_high_risk = (
+            tier == "C" or "terminology_dense" in assessment.risk_flags or "footnote_markers" in assessment.risk_flags
+        )
         if is_high_risk:
             high_risk_chunks += 1
 

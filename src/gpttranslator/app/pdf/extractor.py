@@ -254,7 +254,9 @@ def extract_pdf_structure(pdf_path: Path) -> ExtractionResult:
             for idx, line in enumerate(sorted(line_candidates, key=lambda item: item.reading_order), start=1):
                 line.block_id = f"blk-{page_num:04d}-{idx:04d}"
 
-            page_footnotes = [line for line in line_candidates if line.block_type in {"footnote_body", "footnote_marker"}]
+            page_footnotes = [
+                line for line in line_candidates if line.block_type in {"footnote_body", "footnote_marker"}
+            ]
             pages.append(
                 ExtractedPage(
                     page_num=page_num,
@@ -626,9 +628,7 @@ def _mark_headers_and_footers(lines: list[_LineCandidate], page_count: int) -> N
         if bottom_token:
             bottom_tokens[bottom_token] += 1
 
-    repeated_top = {
-        token for token, count in top_tokens.items() if count >= 2 and (count / max(page_count, 1)) >= 0.4
-    }
+    repeated_top = {token for token, count in top_tokens.items() if count >= 2 and (count / max(page_count, 1)) >= 0.4}
     repeated_bottom = {
         token for token, count in bottom_tokens.items() if count >= 2 and (count / max(page_count, 1)) >= 0.4
     }

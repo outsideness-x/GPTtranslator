@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from ..core.models import Chunk
-from ..memory.glossary_manager import GlossaryEntry
-from ..memory.glossary_manager import parse_glossary_entries
+from ..memory.glossary_manager import GlossaryEntry, parse_glossary_entries
 from .codex_backend import ChunkTranslationRequest
 from .economy.context import slice_glossary_entries
 from .protocol import utcnow_iso

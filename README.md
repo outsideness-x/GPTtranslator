@@ -23,10 +23,16 @@ Minimalist terminal CLI shell and production-style project skeleton for a future
   - deterministic consistency pass -> `translated/consistency_flags.jsonl`
 - `budget <book_id>` estimates Codex pressure heuristically without token APIs.
 - `qa <book_id>` runs local deterministic checks and can optionally run Codex semantic/terminology QA with `--codex-based`.
-- `build` remains a CLI stub in this stage.
+- `build <book_id>` assembles local `output/translated_book.pdf` and `output/build_report.md` from translated data and extraction artifacts.
+- Build typesetting supports deterministic reflow controls:
+  - line wrapping and page breaks
+  - widow/orphan handling
+  - page-level footnote area policy
+  - caption proximity handling for image-related overflow
+  - multi-page block continuation
 - Codex runtime protocol contract is implemented as file-based job artifacts + strict output validation + retry/recovery policy.
 
-## Architecture
+## Final project structure
 
 ```text
 src/gpttranslator/
@@ -50,6 +56,7 @@ src/gpttranslator/
 │   │   ├── paths.py
 │   │   ├── models.py
 │   │   ├── manifest.py
+│   │   ├── reporting.py
 │   │   └── state.py
 │   ├── memory/
 │   │   ├── glossary_manager.py
@@ -59,7 +66,8 @@ src/gpttranslator/
 │   │   ├── ingestion.py
 │   │   ├── inspector.py
 │   │   ├── extractor.py
-│   │   └── document_graph.py
+│   │   ├── document_graph.py
+│   │   └── ocr.py
 │   ├── translation/
 │   │   ├── protocol.py
 │   │   ├── codex_backend.py
@@ -77,27 +85,40 @@ src/gpttranslator/
 │   │       ├── base.py
 │   │       └── codex_cli.py
 │   ├── qa/
+│   │   └── service.py
 │   ├── render/
+│   │   ├── assets.py
+│   │   ├── composer.py
+│   │   ├── pdf_writer.py
+│   │   ├── service.py
+│   │   └── typesetter.py
 │   └── utils/
 ├── cli.py
-└── __main__.py
-
-prompts/
-workspace/
+├── __main__.py
+├── prompts/
+├── tests/
+│   ├── fixtures/
+│   │   ├── codex_job_example/
+│   │   ├── mock_codex_cli.py
+│   │   └── pdfs/
+│   │       ├── text_fixture.pdf
+│   │       └── scan_fixture.pdf
+│   └── test_*.py
+└── workspace/
 ```
 
 ## CLI commands
 
 - `help`
-- `status`
+- `status [book_id]`
 - `init <path-to-pdf>`
 - `inspect <book_id>`
-- `extract <book_id>`
+- `extract <book_id> [--ocr-mode off|auto|force] [--ocr-language eng] [--ocr-dpi 200]`
 - `glossary <book_id> [--find <term>]`
 - `budget <book_id>`
 - `translate <book_id> [--profile ...] [--backend codex-cli|mock] [--dry-run] [--resume]`
 - `qa <book_id> [--codex-based --backend codex-cli|mock]`
-- `build`
+- `build <book_id> [--prefer-edited] [--fallback-mode conservative|aggressive-reflow] [--font-scale-min N] [--font-scale-max N] [--line-spacing N] [--page-margin-* N] [--footnote-area-policy reserve|adaptive|ignore] [--reflow-page-char-budget N]`
 - `version`
 
 ## Init workspace layout
@@ -218,6 +239,9 @@ Artifacts written per run:
 - `workspace/<book_id>/translated/consistency_flags.jsonl`
 - `workspace/<book_id>/translated/qa_flags.jsonl`
 - `workspace/<book_id>/output/qa_report.md`
+- `workspace/<book_id>/output/build_report.md`
+- `workspace/<book_id>/output/translation_summary.md`
+- `workspace/<book_id>/logs/run.log`
 
 ## Prompt templates by stage
 
@@ -234,7 +258,50 @@ Artifacts written per run:
 
 Prompt rendering is implemented in `gpttranslator.app.translation.protocol.render_prompt()` using the file-based protocol payload (`input.json` + strict output schema).
 
-## Install and run
+## Developer setup
+
+```bash
+./bin/pip install -e '.[dev]'
+```
+
+Codex CLI login (one-time for real backend runs):
+
+```bash
+codex --help
+# then run codex and complete interactive login
+codex
+```
+
+Task runner:
+
+```bash
+make dev-install
+make format
+make lint
+make typecheck
+make test
+make test-smoke
+make check
+```
+
+## Formatting, linting, type checks
+
+```bash
+./bin/python -m ruff format src tests
+./bin/python -m ruff check src tests
+./bin/python -m mypy src
+./bin/python -m pytest -q
+```
+
+## Integration smoke in mock mode
+
+All integration tests can run without real `codex` calls:
+
+```bash
+./bin/python -m pytest -q tests/test_integration_smoke_pipeline.py
+```
+
+## Manual run commands
 
 ```bash
 ./bin/pip install -e '.[dev]'
@@ -248,7 +315,9 @@ Prompt rendering is implemented in `gpttranslator.app.translation.protocol.rende
 ./bin/gpttranslator translate <book_id> --resume --only-failed --batch-size 16 --strict-json --strict-terminology --editorial-rewrite-level medium
 ./bin/gpttranslator qa <book_id> --local-only
 ./bin/gpttranslator qa <book_id> --codex-based --backend codex-cli --codex-on-risk-only
-./bin/gpttranslator status
+./bin/gpttranslator build <book_id> --prefer-edited
+./bin/gpttranslator build <book_id> --fallback-mode aggressive-reflow --line-spacing 1.25 --footnote-area-policy reserve
+./bin/gpttranslator status <book_id>
 ```
 
 ## Recommended long-book workflow (300+ pages)

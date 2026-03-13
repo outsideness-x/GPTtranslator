@@ -10,9 +10,9 @@ from typer.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.cli import app
+from _pdf_test_utils import write_corrupted_pdf_with_signature, write_image_only_pdf, write_simple_text_pdf
 
-from _pdf_test_utils import write_corrupted_pdf_with_signature, write_simple_text_pdf
+from gpttranslator.cli import app
 
 runner = CliRunner()
 
@@ -111,3 +111,66 @@ def test_extract_command_handles_corrupted_pdf() -> None:
         extract_result = runner.invoke(app, ["extract", book_id])
         assert extract_result.exit_code == 1
         assert "extract failed" in extract_result.output.lower()
+
+
+def test_extract_command_auto_uses_ocr_for_likely_scanned_pdf() -> None:
+    with runner.isolated_filesystem():
+        source_pdf = Path("scan.pdf")
+        write_image_only_pdf(source_pdf, page_count=2)
+
+        init_result = runner.invoke(app, ["init", str(source_pdf)])
+        assert init_result.exit_code == 0
+
+        workspace_root = Path("workspace")
+        book_id = next(path.name for path in workspace_root.iterdir() if path.is_dir())
+
+        inspect_result = runner.invoke(app, ["inspect", book_id])
+        assert inspect_result.exit_code == 0
+
+        extract_result = runner.invoke(app, ["extract", book_id])
+        assert extract_result.exit_code == 0
+        assert "mode                 : ocr" in extract_result.output.lower()
+
+        analysis_dir = workspace_root / book_id / "analysis"
+        ocr_pages_path = analysis_dir / "ocr_pages.jsonl"
+        ocr_blocks_path = analysis_dir / "ocr_blocks.jsonl"
+
+        assert ocr_pages_path.exists()
+        assert ocr_blocks_path.exists()
+
+        ocr_pages = _read_jsonl(ocr_pages_path)
+        ocr_blocks = _read_jsonl(ocr_blocks_path)
+        assert len(ocr_pages) == 2
+        assert len(ocr_blocks) >= 2
+        assert "low_confidence" in ocr_pages[0]
+        assert "confidence" in ocr_blocks[0]
+
+        manifest_path = workspace_root / book_id / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        extraction_meta = manifest["metadata"]["extraction"]
+        assert extraction_meta["mode"] == "ocr"
+        assert extraction_meta["artifacts"]["ocr_pages"] == "analysis/ocr_pages.jsonl"
+        assert extraction_meta["artifacts"]["ocr_blocks"] == "analysis/ocr_blocks.jsonl"
+
+
+def test_extract_command_ocr_mode_off_skips_ocr_branch() -> None:
+    with runner.isolated_filesystem():
+        source_pdf = Path("scan.pdf")
+        write_image_only_pdf(source_pdf, page_count=1)
+
+        init_result = runner.invoke(app, ["init", str(source_pdf)])
+        assert init_result.exit_code == 0
+
+        workspace_root = Path("workspace")
+        book_id = next(path.name for path in workspace_root.iterdir() if path.is_dir())
+
+        inspect_result = runner.invoke(app, ["inspect", book_id])
+        assert inspect_result.exit_code == 0
+
+        extract_result = runner.invoke(app, ["extract", book_id, "--ocr-mode", "off"])
+        assert extract_result.exit_code == 0
+        assert "mode                 : native" in extract_result.output.lower()
+
+        analysis_dir = workspace_root / book_id / "analysis"
+        assert not (analysis_dir / "ocr_pages.jsonl").exists()
+        assert not (analysis_dir / "ocr_blocks.jsonl").exists()

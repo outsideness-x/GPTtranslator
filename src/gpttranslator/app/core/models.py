@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 
 def utcnow_iso() -> str:
@@ -19,6 +19,27 @@ def _coerce_bbox(value: Any) -> tuple[float, float, float, float] | None:
     if isinstance(value, (list, tuple)) and len(value) == 4:
         return (float(value[0]), float(value[1]), float(value[2]), float(value[3]))
     return None
+
+
+def _coerce_translation_status(value: Any) -> Literal["pending", "done", "failed"]:
+    status = str(value).strip().lower()
+    if status in {"pending", "done", "failed"}:
+        return cast(Literal["pending", "done", "failed"], status)
+    return "pending"
+
+
+def _coerce_qa_severity(value: Any) -> Literal["low", "medium", "high"]:
+    severity = str(value).strip().lower()
+    if severity in {"low", "medium", "high"}:
+        return cast(Literal["low", "medium", "high"], severity)
+    return "low"
+
+
+def _coerce_codex_job_status(value: Any) -> Literal["queued", "running", "finished", "failed"]:
+    status = str(value).strip().lower()
+    if status in {"queued", "running", "finished", "failed"}:
+        return cast(Literal["queued", "running", "finished", "failed"], status)
+    return "queued"
 
 
 @dataclass(slots=True)
@@ -264,9 +285,7 @@ class ImageAsset:
             ),
             filters=[str(item) for item in data.get("filters", [])],
             anchor_block_id=(str(data["anchor_block_id"]) if data.get("anchor_block_id") is not None else None),
-            caption_block_id=(
-                str(data["caption_block_id"]) if data.get("caption_block_id") is not None else None
-            ),
+            caption_block_id=(str(data["caption_block_id"]) if data.get("caption_block_id") is not None else None),
             caption_confidence=(float(caption_confidence) if caption_confidence is not None else None),
             flags=[str(item) for item in data.get("flags", [])],
         )
@@ -317,9 +336,7 @@ class SectionInfo:
             level=int(data.get("level", 1)),
             start_page=int(data.get("start_page", 1)),
             end_page=int(data.get("end_page", 1)),
-            heading_block_id=(
-                str(data["heading_block_id"]) if data.get("heading_block_id") is not None else None
-            ),
+            heading_block_id=(str(data["heading_block_id"]) if data.get("heading_block_id") is not None else None),
             block_ids=[str(item) for item in data.get("block_ids", [])],
             confidence=float(data.get("confidence", 0.0)),
             flags=[str(item) for item in data.get("flags", [])],
@@ -426,7 +443,7 @@ class TranslationRecord:
             chunk_id=str(data["chunk_id"]),
             target_text=str(data.get("target_text", "")),
             backend=str(data.get("backend", "codex_cli")),
-            status=str(data.get("status", "pending")),
+            status=_coerce_translation_status(data.get("status", "pending")),
             updated_at=str(data.get("updated_at", utcnow_iso())),
         )
 
@@ -450,7 +467,7 @@ class QAFlag:
     def from_dict(cls, data: dict[str, Any]) -> "QAFlag":
         return cls(
             chunk_id=str(data["chunk_id"]),
-            severity=str(data["severity"]),
+            severity=_coerce_qa_severity(data.get("severity", "low")),
             message=str(data.get("message", "")),
             rule_id=str(data["rule_id"]) if data.get("rule_id") is not None else None,
         )
@@ -495,7 +512,7 @@ class CodexJob:
             meta_path=str(data.get("meta_path", "")),
             timeout_seconds=int(data.get("timeout_seconds", 120)),
             max_attempts=int(data.get("max_attempts", 3)),
-            status=str(data.get("status", "queued")),
+            status=_coerce_codex_job_status(data.get("status", "queued")),
         )
 
 
@@ -533,9 +550,7 @@ class CodexResult:
             stderr=str(data.get("stderr", "")),
             success=bool(data.get("success", False)),
             output_path=str(data["output_path"]) if data.get("output_path") is not None else None,
-            failure_reason=(
-                str(data["failure_reason"]) if data.get("failure_reason") is not None else None
-            ),
+            failure_reason=(str(data["failure_reason"]) if data.get("failure_reason") is not None else None),
             meta_path=str(data["meta_path"]) if data.get("meta_path") is not None else None,
             attempt_count=int(data.get("attempt_count", 0)),
         )

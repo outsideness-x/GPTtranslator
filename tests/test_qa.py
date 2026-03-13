@@ -103,7 +103,9 @@ def test_run_qa_pass_local_checks_write_flags_and_report(tmp_path: Path) -> None
         encoding="utf-8",
     )
     (book_root / "memory" / "style_guide.md").write_text("# Style Guide\n- Keep concise.\n", encoding="utf-8")
-    (book_root / "memory" / "chapter_notes.md").write_text("# Chapter Notes\n\n## Global Notes\n- Preserve markers.\n", encoding="utf-8")
+    (book_root / "memory" / "chapter_notes.md").write_text(
+        "# Chapter Notes\n\n## Global Notes\n- Preserve markers.\n", encoding="utf-8"
+    )
 
     result = run_qa_pass(
         book_root=book_root,
@@ -158,8 +160,12 @@ def test_run_qa_pass_with_mock_codex_executes_optional_checks(tmp_path: Path) ->
         "# Glossary\n\n## Term Table\n| Source term | Target term | POS | Decision | Notes |\n|---|---|---|---|---|\n| Alpha | Альфа | noun | preferred | |\n",
         encoding="utf-8",
     )
-    (book_root / "memory" / "style_guide.md").write_text("# Style Guide\n- Keep precise terminology.\n", encoding="utf-8")
-    (book_root / "memory" / "chapter_notes.md").write_text("# Chapter Notes\n\n## chapter-01\n- Keep stable terms.\n", encoding="utf-8")
+    (book_root / "memory" / "style_guide.md").write_text(
+        "# Style Guide\n- Keep precise terminology.\n", encoding="utf-8"
+    )
+    (book_root / "memory" / "chapter_notes.md").write_text(
+        "# Chapter Notes\n\n## chapter-01\n- Keep stable terms.\n", encoding="utf-8"
+    )
 
     result = run_qa_pass(
         book_root=book_root,
@@ -216,6 +222,8 @@ def test_qa_command_runs_local_mode_and_writes_outputs() -> None:
         assert "QA completed" in result.output
         assert (book_root / "translated" / "qa_flags.jsonl").exists()
         assert (book_root / "output" / "qa_report.md").exists()
+        assert (book_root / "output" / "translation_summary.md").exists()
+        assert (book_root / "logs" / "run.log").exists()
 
 
 def test_qa_command_runs_codex_mode_with_mock_backend() -> None:

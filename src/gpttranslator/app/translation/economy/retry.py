@@ -50,6 +50,8 @@ def decide_retry_directive(
     if failure_reason == "missing_output_file":
         if strict_mode:
             return RetryDirective(False, "none", None, "Strict mode avoids blind rerun on missing output.")
-        return RetryDirective(True, "lightweight_recovery", "translate_chunk", "Retry with explicit file-write instructions.")
+        return RetryDirective(
+            True, "lightweight_recovery", "translate_chunk", "Retry with explicit file-write instructions."
+        )
 
     return RetryDirective(False, "none", None, f"No retry strategy for failure reason: {failure_reason}")

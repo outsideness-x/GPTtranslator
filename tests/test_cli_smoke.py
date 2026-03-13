@@ -45,13 +45,6 @@ def test_status_reports_not_initialized() -> None:
     assert "not initialized" in result.stdout.lower()
 
 
-@pytest.mark.parametrize("command", ["build"])
-def test_stub_commands(command: str) -> None:
-    result = runner.invoke(app, [command])
-    assert result.exit_code == 0
-    assert "stub command" in result.stdout.lower()
-
-
 def test_qa_help_includes_codex_flags() -> None:
     result = runner.invoke(app, ["qa", "--help"])
     assert result.exit_code == 0
@@ -59,6 +52,25 @@ def test_qa_help_includes_codex_flags() -> None:
     assert "--backend" in result.stdout
     assert "--dry-run" in result.stdout
     assert "timeout-secon" in result.stdout
+
+
+def test_build_help_includes_build_flags() -> None:
+    result = runner.invoke(app, ["build", "--help"])
+    assert result.exit_code == 0
+    assert "--prefer-edited" in result.stdout
+    assert "fallback-mode" in result.stdout
+    assert "font-scale-mi" in result.stdout
+    assert "line-spacing" in result.stdout
+    assert "footnote-area" in result.stdout
+    assert "reflow-page-c" in result.stdout
+
+
+def test_extract_help_includes_ocr_flags() -> None:
+    result = runner.invoke(app, ["extract", "--help"])
+    assert result.exit_code == 0
+    assert "ocr-mode" in result.stdout
+    assert "ocr-language" in result.stdout
+    assert "ocr-dpi" in result.stdout
 
 
 def test_translate_help_includes_economy_flags() -> None:

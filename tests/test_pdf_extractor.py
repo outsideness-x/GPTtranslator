@@ -10,9 +10,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.app.pdf.extractor import PdfExtractionError, extract_pdf_structure, save_extraction_artifacts
-
 from _pdf_test_utils import write_corrupted_pdf_with_signature, write_simple_text_pdf
+
+from gpttranslator.app.pdf.extractor import PdfExtractionError, extract_pdf_structure, save_extraction_artifacts
 
 
 def test_extract_pdf_structure_returns_blocks_pages_and_footnotes(tmp_path: Path) -> None:

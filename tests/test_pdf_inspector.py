@@ -10,9 +10,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gpttranslator.app.pdf.inspector import PdfInspectionError, inspect_pdf, save_inspection_report
-
 from _pdf_test_utils import write_corrupted_pdf_with_signature, write_simple_text_pdf
+
+from gpttranslator.app.pdf.inspector import PdfInspectionError, inspect_pdf, save_inspection_report
 
 
 def test_inspect_pdf_detects_text_and_structure(tmp_path: Path) -> None:
@@ -36,6 +36,7 @@ def test_inspect_pdf_detects_text_and_structure(tmp_path: Path) -> None:
     stored = json.loads(report_path.read_text(encoding="utf-8"))
     assert stored["page_count"] == 2
     assert stored["has_text_layer"] is True
+    assert stored["likely_scanned"] == stored["likely_scan"]
 
 
 def test_inspect_pdf_raises_on_corrupted_pdf(tmp_path: Path) -> None:

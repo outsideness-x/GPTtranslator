@@ -204,14 +204,12 @@ def validate_document_graph(graph: DocumentGraph) -> None:
     for page in graph.pages:
         errors.extend(page.validate())
         for block_id in page.block_ids:
-            block = block_by_id.get(block_id)
-            if block is None:
+            page_block = block_by_id.get(block_id)
+            if page_block is None:
                 errors.append(f"page {page.page_num}: unknown block_id {block_id}")
                 continue
-            if block.page_num != page.page_num:
-                errors.append(
-                    f"page {page.page_num}: block {block_id} belongs to page {block.page_num}"
-                )
+            if page_block.page_num != page.page_num:
+                errors.append(f"page {page.page_num}: block {block_id} belongs to page {page_block.page_num}")
 
         for section_id in page.section_ids:
             if section_id not in section_by_id:
@@ -288,11 +286,7 @@ def _build_blocks(result: ExtractionResult) -> list[Block]:
 def _build_sections(blocks: list[Block]) -> tuple[list[SectionInfo], list[str]]:
     warnings: list[str] = []
 
-    content_blocks = [
-        block
-        for block in blocks
-        if block.block_type not in {"header", "footer", "image_anchor"}
-    ]
+    content_blocks = [block for block in blocks if block.block_type not in {"header", "footer", "image_anchor"}]
 
     if not content_blocks:
         section = SectionInfo(
@@ -406,11 +400,7 @@ def _assign_block_sections(blocks: list[Block], sections: list[SectionInfo]) -> 
             block.flags.append("section_inferred")
 
     for section in sections:
-        section.block_ids = [
-            block.block_id
-            for block in document_order
-            if block.section_id == section.section_id
-        ]
+        section.block_ids = [block.block_id for block in document_order if block.section_id == section.section_id]
 
 
 def _infer_section_for_block(block: Block, assigned: list[Block]) -> str | None:
@@ -420,7 +410,11 @@ def _infer_section_for_block(block: Block, assigned: list[Block]) -> str | None:
         nearest = min(same_page, key=lambda item: abs(item.reading_order - block.reading_order))
         return nearest.section_id
 
-    previous = [candidate for candidate in assigned if (candidate.page_num, candidate.reading_order) < (block.page_num, block.reading_order)]
+    previous = [
+        candidate
+        for candidate in assigned
+        if (candidate.page_num, candidate.reading_order) < (block.page_num, block.reading_order)
+    ]
     if previous:
         return previous[-1].section_id
 
@@ -488,11 +482,7 @@ def _build_footnote_links(
         marker_block_id = marker.source_block_id if marker.source_block_id in block_by_id else None
         marker_key = _normalize_marker(marker.marker)
 
-        candidates = [
-            body
-            for body in body_by_marker.get(marker_key, [])
-            if body.source_block_id not in used_bodies
-        ]
+        candidates = [body for body in body_by_marker.get(marker_key, []) if body.source_block_id not in used_bodies]
 
         matched = None
         confidence = 0.2
@@ -508,9 +498,7 @@ def _build_footnote_links(
                 flags.append("cross_page_link")
         else:
             same_page = [
-                body
-                for body in bodies
-                if body.page_num == marker.page_num and body.source_block_id not in used_bodies
+                body for body in bodies if body.page_num == marker.page_num and body.source_block_id not in used_bodies
             ]
             if same_page:
                 matched = same_page[0]

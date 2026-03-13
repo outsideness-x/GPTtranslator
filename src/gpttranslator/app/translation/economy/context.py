@@ -42,12 +42,10 @@ class ContextPackage:
 
         return {
             "exact_glossary": [
-                {"s": item.source_term, "t": item.target_term, "n": item.notes}
-                for item in self.exact_glossary
+                {"s": item.source_term, "t": item.target_term, "n": item.notes} for item in self.exact_glossary
             ],
             "fuzzy_glossary": [
-                {"s": item.source_term, "t": item.target_term, "n": item.notes}
-                for item in self.fuzzy_glossary
+                {"s": item.source_term, "t": item.target_term, "n": item.notes} for item in self.fuzzy_glossary
             ],
             "entities": list(self.named_entities),
             "chapter_decisions": list(self.chapter_term_decisions),
@@ -177,7 +175,7 @@ def slice_glossary_entries(
     dedup_exact = _deduplicate_glossary(exact)
     dedup_fuzzy = _deduplicate_glossary([item[1] for item in fuzzy])
 
-    return dedup_exact[: max_exact], dedup_fuzzy[: max_fuzzy]
+    return dedup_exact[:max_exact], dedup_fuzzy[:max_fuzzy]
 
 
 def extract_named_entities(chunk: Chunk, *, limit: int) -> list[str]:
