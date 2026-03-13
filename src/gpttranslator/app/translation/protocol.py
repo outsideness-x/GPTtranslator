@@ -401,9 +401,18 @@ def utcnow_iso() -> str:
 
 
 def get_prompts_dir() -> Path:
-    """Return repository prompts directory."""
+    """Return a prompts directory that works from source and installed layouts."""
 
-    return Path(__file__).resolve().parents[4] / "prompts"
+    package_root = Path(__file__).resolve().parents[2]
+    candidates = (
+        Path(__file__).resolve().parents[4] / "prompts",
+        package_root / "prompt_assets",
+    )
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    searched = ", ".join(str(candidate) for candidate in candidates)
+    raise ValueError(f"Prompt templates directory not found. Searched: {searched}")
 
 
 def get_prompt_template_spec(template_id: str) -> PromptTemplateSpec:

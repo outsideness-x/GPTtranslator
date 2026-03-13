@@ -1,135 +1,134 @@
 # GPTtranslate
 
-Minimalist terminal CLI shell and production-style project skeleton for a future PDF-to-PDF book translation pipeline.
+Linux-first CLI pipeline for translating English books from PDF to Russian PDF while preserving structure as safely as possible.
 
-## Architectural constraints
-
-- No API and no SDK integrations.
-- Future LLM backend is only external `codex` CLI shell-out.
-- Orchestration is file-based (workspace folders + manifests + job/result artifacts).
-
-## Current stage scope
-
-- CLI is scaffolded and stable.
-- `init` performs local ingestion of source PDF into a per-book workspace.
-- `inspect` performs fully local PDF inspection and writes JSON report.
-- `extract` performs fully local structure extraction and writes JSONL artifacts.
-- `extract` now also builds a linked `document_graph` with sections and entity relations.
-- `glossary <book_id>` manages local memory assets (`glossary.md`, `style_guide.md`, `chapter_notes.md`, `translation_memory.jsonl`).
-- `translate <book_id>` runs a production-style economy planner with adaptive chunking, TM-first routing, tiering, selective editorial/QA planning, and savings observability artifacts.
-- `translate` runs chunk/batch execution with resume/checkpoints and supports `--backend`, `--dry-run`, `--batch-size`, `--resume`, `--only-failed`, `--strict-json`.
-- After translation batches, command runs:
-  - Codex editorial pass -> `translated/edited_chunks.jsonl`
-  - deterministic consistency pass -> `translated/consistency_flags.jsonl`
-- `budget <book_id>` estimates Codex pressure heuristically without token APIs.
-- `qa <book_id>` runs local deterministic checks and can optionally run Codex semantic/terminology QA with `--codex-based`.
-- `build <book_id>` assembles local `output/translated_book.pdf` and `output/build_report.md` from translated data and extraction artifacts.
-- Build typesetting supports deterministic reflow controls:
-  - line wrapping and page breaks
-  - widow/orphan handling
-  - page-level footnote area policy
-  - caption proximity handling for image-related overflow
-  - multi-page block continuation
-- Codex runtime protocol contract is implemented as file-based job artifacts + strict output validation + retry/recovery policy.
-
-## Final project structure
+The project is file-based and resumable:
 
 ```text
-src/gpttranslator/
-├── app/
-│   ├── cli_app.py
-│   ├── commands/
-│   │   ├── registry.py
-│   │   ├── help.py
-│   │   ├── status.py
-│   │   ├── init.py
-│   │   ├── inspect.py
-│   │   ├── extract.py
-│   │   ├── glossary.py
-│   │   ├── budget.py
-│   │   ├── translate.py
-│   │   ├── qa.py
-│   │   └── build.py
-│   ├── core/
-│   │   ├── config.py
-│   │   ├── logging.py
-│   │   ├── paths.py
-│   │   ├── models.py
-│   │   ├── manifest.py
-│   │   ├── reporting.py
-│   │   └── state.py
-│   ├── memory/
-│   │   ├── glossary_manager.py
-│   │   ├── style_guide_manager.py
-│   │   └── translation_memory_manager.py
-│   ├── pdf/
-│   │   ├── ingestion.py
-│   │   ├── inspector.py
-│   │   ├── extractor.py
-│   │   ├── document_graph.py
-│   │   └── ocr.py
-│   ├── translation/
-│   │   ├── protocol.py
-│   │   ├── codex_backend.py
-│   │   ├── economy/
-│   │   │   ├── profiles.py
-│   │   │   ├── adaptive.py
-│   │   │   ├── context.py
-│   │   │   ├── prefilter.py
-│   │   │   ├── planner.py
-│   │   │   ├── dedupe.py
-│   │   │   ├── retry.py
-│   │   │   ├── budget.py
-│   │   │   └── service.py
-│   │   └── backends/
-│   │       ├── base.py
-│   │       └── codex_cli.py
-│   ├── qa/
-│   │   └── service.py
-│   ├── render/
-│   │   ├── assets.py
-│   │   ├── composer.py
-│   │   ├── pdf_writer.py
-│   │   ├── service.py
-│   │   └── typesetter.py
-│   └── utils/
-├── cli.py
-├── __main__.py
-├── prompts/
-├── tests/
-│   ├── fixtures/
-│   │   ├── codex_job_example/
-│   │   ├── mock_codex_cli.py
-│   │   └── pdfs/
-│   │       ├── text_fixture.pdf
-│   │       └── scan_fixture.pdf
-│   └── test_*.py
-└── workspace/
+PDF -> inspect -> extract -> glossary/memory -> translate -> QA -> build
 ```
 
-## CLI commands
+## Constraints
 
-- `help`
-- `status [book_id]`
-- `init <path-to-pdf>`
-- `inspect <book_id>`
-- `extract <book_id> [--ocr-mode off|auto|force] [--ocr-language eng] [--ocr-dpi 200]`
-- `glossary <book_id> [--find <term>]`
-- `budget <book_id>`
-- `translate <book_id> [--profile ...] [--backend codex-cli|mock] [--dry-run] [--resume]`
-- `qa <book_id> [--codex-based --backend codex-cli|mock]`
-- `build <book_id> [--prefer-edited] [--fallback-mode conservative|aggressive-reflow] [--font-scale-min N] [--font-scale-max N] [--line-spacing N] [--page-margin-* N] [--footnote-area-policy reserve|adaptive|ignore] [--reflow-page-char-budget N]`
-- `version`
+- No OpenAI API, SDK, HTTP LLM calls, or API keys.
+- The only model-powered backend is an external `codex` CLI subprocess.
+- All Codex interaction is file-based: `input.json`, `prompt.md`, `output.json`, `meta.json`, raw stdout/stderr.
+- Deterministic local logic is preferred before any Codex call.
 
-## Init workspace layout
+## Installation
 
-Command:
+Requirements:
+
+- Linux
+- Python 3.11+
+- Internet access for the initial dependency install unless your package cache is already warm
+
+Quick start after `git clone`:
+
+```bash
+cd GPTtranslate
+./scripts/install.sh
+source .venv/bin/activate
+gpttranslator --help
+```
+
+What `./scripts/install.sh` does:
+
+- prefers `uv` when available
+- falls back to `python3 -m venv` + `pip`
+- creates a local virtual environment at `.venv/` by default
+- installs the package in editable mode
+- verifies that the `gpttranslator` console entrypoint was created
+
+Useful install variants:
+
+```bash
+./scripts/install.sh --venv-dir /tmp/gpttranslator-venv
+./scripts/dev_install.sh
+./scripts/uninstall.sh
+```
+
+Important:
+
+- `gpttranslator` is available after you activate the virtual environment, or by calling `.venv/bin/gpttranslator` directly.
+- By default the CLI uses the current working directory as the project root and writes its workspace to `./workspace/`.
+- To run against another root explicitly, set `GPTTRANSLATOR_PROJECT_ROOT=/path/to/project-root`.
+
+## Development Setup
+
+Install dev dependencies:
+
+```bash
+./scripts/dev_install.sh
+source .venv/bin/activate
+```
+
+Make targets:
+
+```bash
+make install
+make dev-install
+make lint
+make typecheck
+make test
+make smoke
+make check
+```
+
+Direct quality commands:
+
+```bash
+.venv/bin/python -m ruff check src tests
+.venv/bin/python -m mypy src
+.venv/bin/python -m pytest -q
+```
+
+## Smoke Test
+
+Basic CLI smoke:
+
+```bash
+gpttranslator --help
+gpttranslator version
+gpttranslator status
+```
+
+Minimal local pipeline smoke with mock translation backend:
 
 ```bash
 gpttranslator init /path/to/book.pdf
+gpttranslator inspect <book_id>
+gpttranslator extract <book_id>
+gpttranslator glossary <book_id>
+gpttranslator translate <book_id> --backend mock --profile balanced --batch-size 2 --strict-json
+gpttranslator qa <book_id> --local-only
+gpttranslator build <book_id>
+gpttranslator status <book_id>
 ```
 
-Resulting structure:
+Build a wheel locally:
+
+```bash
+python3 -m pip wheel . --no-build-isolation --no-deps -w dist
+```
+
+## CLI Commands
+
+- `gpttranslator help`
+- `gpttranslator status [book_id]`
+- `gpttranslator init <path-to-pdf>`
+- `gpttranslator inspect <book_id>`
+- `gpttranslator extract <book_id> [--ocr-mode off|auto|force] [--ocr-language eng] [--ocr-dpi 200]`
+- `gpttranslator glossary <book_id> [--find <term>]`
+- `gpttranslator budget <book_id>`
+- `gpttranslator translate <book_id> [--profile economy|balanced|quality] [--backend codex-cli|mock] [--dry-run] [--resume]`
+- `gpttranslator qa <book_id> [--codex-based --backend codex-cli|mock]`
+- `gpttranslator build <book_id> [--prefer-edited] [--fallback-mode conservative|aggressive-reflow]`
+- `gpttranslator version`
+
+## Workspace Layout
+
+Each book lives under `workspace/<book_id>/`:
 
 ```text
 workspace/
@@ -139,13 +138,14 @@ workspace/
     ├── input/
     │   └── original.pdf
     ├── analysis/
-    │   ├── inspection_report.json   # created by `inspect`
-    │   ├── pages.jsonl              # created by `extract`
-    │   ├── blocks.jsonl             # created by `extract`
-    │   ├── images.jsonl             # created by `extract`
-    │   ├── sections.jsonl           # created by `extract`
-    │   ├── footnotes.jsonl          # created by `extract`
-    │   └── document_graph.json      # created by `extract`
+    │   ├── inspection_report.json
+    │   ├── pages.jsonl
+    │   ├── blocks.jsonl
+    │   ├── images.jsonl
+    │   ├── footnotes.jsonl
+    │   ├── sections.jsonl
+    │   ├── document_graph.json
+    │   └── chunks.jsonl
     ├── memory/
     │   ├── glossary.md
     │   ├── style_guide.md
@@ -153,223 +153,96 @@ workspace/
     │   └── translation_memory.jsonl
     ├── translated/
     ├── output/
-    └── logs/
+    ├── logs/
+    └── jobs/
 ```
 
-## Codex job file contract
+Key properties:
 
-Each Codex job lives under:
+- resumable runs via local artifacts and checkpoints
+- no silent overwrite of core artifacts by install flow
+- explicit logs for stage transitions and Codex job failures
+
+## Codex Job Contract
+
+Each job uses:
 
 ```text
 workspace/<book_id>/jobs/<job_id>/
 ├── input.json
 ├── prompt.md
 ├── output.json
+├── meta.json
 ├── raw_stdout.txt
-├── raw_stderr.txt
-└── meta.json
+└── raw_stderr.txt
 ```
 
-Contract schema versions:
+Schema versions:
 
-- `input.json`: `gpttranslator.codex.input.v1`
-- `prompt.md` template payload schema: `gpttranslator.codex.prompt_template.v1`
-- `output.json`: `gpttranslator.codex.output.v1` (strict validation, extra fields rejected)
-- `meta.json`: `gpttranslator.codex.meta.v1`
+- `gpttranslator.codex.input.v1`
+- `gpttranslator.codex.prompt_template.v1`
+- `gpttranslator.codex.output.v1`
+- `gpttranslator.codex.meta.v1`
 
-Recovery policy in `codex_cli` backend:
+Prompt templates are available both in the repository `prompts/` directory and in packaged prompt assets, so installed builds do not depend on the source tree being present.
 
-- `invalid_json` -> retry
-- `partial_json` -> retry
-- `timeout` -> retry
-- `interrupted_process` -> retry
-- `missing_output_file` -> retry
-- `output_schema_validation_failed` -> retry
+## How To Verify Codex Availability
 
-No translation content is parsed from stdout/stderr. Only `output.json` is considered authoritative.
-
-## Economy profiles
-
-Profiles tune chunking, context size, optional passes, and retries:
-
-- `economy`
-  - larger chunks, smaller context package
-  - editorial and Codex QA mostly disabled
-  - minimal retries, strict recovery behavior
-- `balanced` (default for most books)
-  - moderate chunk size and context
-  - selective editorial and risk-only QA
-  - conservative retries
-- `quality`
-  - smaller chunks, richer context
-  - more editorial and QA coverage
-  - higher retry budget
-
-Default selection:
-
-- normal books -> `balanced`
-- very long books (roughly 450+ pages) -> `economy`
-- explicit CLI override -> `--profile economy|balanced|quality`
-
-## Cost-aware pipeline components
-
-`translate` and `budget` use deterministic local logic before any Codex work:
-
-- TM-first (`exact` then `near-exact`)
-- local pre-filter for empty/non-translatable/repeated fragments
-- glossary slicing (exact + fuzzy + chapter decisions)
-- compact style/chapter context package
-- complexity scoring + tier routing (A/B/C)
-- selective editorial / selective QA planning
-- job dedup fingerprint + output cache reuse
-- retry economy directives
-- chapter-level budget estimator and session-pressure warning
-
-Artifacts written per run:
-
-- `workspace/<book_id>/translated/economy_plan.json`
-- `workspace/<book_id>/logs/economy_summary.json`
-- `workspace/<book_id>/logs/budget_estimate.json`
-- `workspace/<book_id>/translated/batch_manifest.json`
-- `workspace/<book_id>/translated/chunk_checkpoints.json`
-- `workspace/<book_id>/translated/translated_chunks.jsonl`
-- `workspace/<book_id>/logs/codex_jobs.jsonl`
-- `workspace/<book_id>/logs/codex_failures.jsonl`
-- `workspace/<book_id>/translated/edited_chunks.jsonl`
-- `workspace/<book_id>/translated/consistency_flags.jsonl`
-- `workspace/<book_id>/translated/qa_flags.jsonl`
-- `workspace/<book_id>/output/qa_report.md`
-- `workspace/<book_id>/output/build_report.md`
-- `workspace/<book_id>/output/translation_summary.md`
-- `workspace/<book_id>/logs/run.log`
-
-## Prompt templates by stage
-
-- `translate` stage:
-  - `translate_chunk` -> `prompts/translate_chunk.prompt.md`
-  - `editorial_pass` -> `prompts/editorial_pass.prompt.md` (selective post-pass on risky chunks)
-- `qa` stage:
-  - `terminology_check` -> `prompts/terminology_check.prompt.md`
-  - `semantic_qa` -> `prompts/semantic_qa.prompt.md`
-- `memory` / chapter analysis stage:
-  - `chapter_summary` -> `prompts/chapter_summary.prompt.md`
-- `glossary` stage:
-  - `glossary_update_proposal` -> `prompts/glossary_update_proposal.prompt.md`
-
-Prompt rendering is implemented in `gpttranslator.app.translation.protocol.render_prompt()` using the file-based protocol payload (`input.json` + strict output schema).
-
-## Developer setup
+Basic shell checks:
 
 ```bash
-./bin/pip install -e '.[dev]'
-```
-
-Codex CLI login (one-time for real backend runs):
-
-```bash
+command -v codex
 codex --help
-# then run codex and complete interactive login
-codex
 ```
 
-Task runner:
+If `codex` is installed under a non-default name or path:
 
 ```bash
-make dev-install
-make format
-make lint
-make typecheck
-make test
-make test-smoke
-make check
+GPTTRANSLATOR_CODEX_COMMAND=/path/to/codex gpttranslator translate <book_id> --backend codex-cli
 ```
 
-## Formatting, linting, type checks
+Expected failure behavior when Codex is missing:
 
-```bash
-./bin/python -m ruff format src tests
-./bin/python -m ruff check src tests
-./bin/python -m mypy src
-./bin/python -m pytest -q
-```
+- the CLI exits with a clear error
+- no fake translation is reported as success
+- workspace artifacts already produced by earlier deterministic stages remain intact
+- no new `jobs/` directory is created before backend availability is confirmed
 
-## Integration smoke in mock mode
+## Quality Gates
 
-All integration tests can run without real `codex` calls:
+Current repo checks:
 
-```bash
-./bin/python -m pytest -q tests/test_integration_smoke_pipeline.py
-```
+- `pytest`
+- `ruff`
+- `mypy`
+- installed-entrypoint smoke via `scripts/install.sh`
+- wheel build smoke via `python3 -m pip wheel . --no-build-isolation --no-deps`
 
-## Manual run commands
+Mock-mode coverage exists for:
 
-```bash
-./bin/pip install -e '.[dev]'
-./bin/gpttranslator --help
-./bin/gpttranslator init /path/to/book.pdf
-./bin/gpttranslator inspect <book_id>
-./bin/gpttranslator extract <book_id>
-./bin/gpttranslator budget <book_id> --profile balanced
-./bin/gpttranslator translate <book_id> --profile economy --qa-on-risk-only --reuse-cache
-./bin/gpttranslator translate <book_id> --backend codex-cli --dry-run
-./bin/gpttranslator translate <book_id> --resume --only-failed --batch-size 16 --strict-json --strict-terminology --editorial-rewrite-level medium
-./bin/gpttranslator qa <book_id> --local-only
-./bin/gpttranslator qa <book_id> --codex-based --backend codex-cli --codex-on-risk-only
-./bin/gpttranslator build <book_id> --prefer-edited
-./bin/gpttranslator build <book_id> --fallback-mode aggressive-reflow --line-spacing 1.25 --footnote-area-policy reserve
-./bin/gpttranslator status <book_id>
-```
+- CLI smoke
+- init / inspect / extract
+- glossary management
+- translation batching and resume
+- missing-Codex failure path
+- QA
+- build
+- end-to-end pipeline smoke on fixture PDFs
 
-## Recommended long-book workflow (300+ pages)
+## Known Limitations
 
-1. Run `extract` and verify chunk/graph artifacts first.
-2. Start with `budget`:
-   - `./bin/gpttranslator budget <book_id> --profile economy --adaptive-chunking`
-3. Use `translate` in economy/balanced mode with reuse enabled:
-   - `./bin/gpttranslator translate <book_id> --profile economy --tm-first --reuse-cache --qa-on-risk-only`
-4. Avoid full editorial+semantic QA on every chunk for long books.
-5. Split very large books into chapter batches if budget warns about high session pressure.
+- Real translation quality with the actual `codex` CLI depends on the local Codex installation and login state; this repository does not bundle Codex itself.
+- Installation is virtualenv-based by default. The project does not pretend that `gpttranslator` is globally available without activation or PATH changes.
+- PDF rebuild is controlled reflow, not guaranteed in-place layout replacement for arbitrary PDFs.
+- OCR is local and conservative. Embedded text inside images, chart relabeling, and formula reconstruction are not implemented as general features in v1.
+- The current version uses model-powered execution only for translation/editorial and optional Codex QA paths. Glossary generation, chapter summarization, and orchestration stay deterministic/local in normal operation.
 
-Recommended flags for savings:
+## Notes For Long Books
 
-- `--profile economy` for very long or test runs
-- `--tm-first`
-- `--reuse-cache`
-- `--qa-on-risk-only`
-- `--adaptive-chunking`
-- `--no-editorial` for exploratory drafts
+For 300-500+ page books:
 
-Batch/resume flags for long books:
-
-- `--resume` to continue interrupted runs
-- `--only-failed` to re-run only failed batches
-- `--from-batch <batch_id>` and `--to-batch <batch_id>` for bounded reruns
-- `--batch-size <N>` to constrain per-batch chunk count
-- `--strict-json` (or `--best-effort-json`) for strict schema behavior
-- `--strict-terminology`, `--preserve-literalness`, `--editorial-rewrite-level light|medium|aggressive` for editorial/consistency behavior
-
-## Extraction JSONL schema
-
-`analysis/blocks.jsonl` row:
-
-- `block_id`
-- `page_num`
-- `block_type` (`heading`, `paragraph`, `caption`, `footnote_marker`, `footnote_body`, `image_anchor`, `header`, `footer`)
-- `bbox` (`[x0, y0, x1, y1]` or `null`)
-- `reading_order`
-- `text`
-- `style_metadata` (font metrics + confidence + optional image metadata)
-- `flags` (heuristic warnings including low-confidence tags)
-
-`analysis/document_graph.json` includes relations:
-
-- `footnote_link`: marker block -> footnote body block (with confidence)
-- `caption_image`: caption block -> image asset (with confidence)
-- `block_section`: block -> section/chapter
-- `adjacent`: block -> next block in reading flow
-
-## Tests
-
-```bash
-./bin/python -m pytest
-```
+- run `budget` before `translate`
+- prefer `--profile economy` or `--profile balanced`
+- keep `--tm-first` and `--reuse-cache` enabled
+- use `--resume` and `--only-failed` for interrupted runs
+- avoid full Codex QA on every chunk unless there is a specific reason

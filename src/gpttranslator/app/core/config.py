@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,16 +37,17 @@ def load_config(project_root: Path | None = None) -> AppConfig:
     This stage intentionally keeps configuration static and file-based.
     """
 
-    root = (project_root or Path.cwd()).resolve()
+    root_override = project_root or _env_path("GPTTRANSLATOR_PROJECT_ROOT")
+    root = (root_override or Path.cwd()).resolve()
     return AppConfig(
         app_name="GPTtranslate",
         version=__version__,
         project_root=root,
         workspace_dir_name="workspace",
-        manifest_filename="book_manifest.json",
+        manifest_filename="manifest.json",
         state_filename="state.json",
-        log_level="INFO",
-        codex_command="codex",
+        log_level=os.environ.get("GPTTRANSLATOR_LOG_LEVEL", "INFO"),
+        codex_command=os.environ.get("GPTTRANSLATOR_CODEX_COMMAND", "codex"),
         default_profile="balanced",
         very_long_book_page_threshold=450,
         default_max_context_entries=12,
@@ -55,3 +57,13 @@ def load_config(project_root: Path | None = None) -> AppConfig:
         default_adaptive_chunking=True,
         default_qa_on_risk_only=True,
     )
+
+
+def _env_path(name: str) -> Path | None:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    if not value:
+        return None
+    return Path(value)

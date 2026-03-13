@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -186,3 +187,29 @@ def test_translate_resume_skips_completed_chunks() -> None:
         edited_path = book_root / "translated" / "edited_chunks.jsonl"
         edited_count = len(_read_jsonl(edited_path))
         assert edited_count == 2
+
+
+def test_translate_fails_for_missing_book_without_creating_workspace_artifacts() -> None:
+    with runner.isolated_filesystem():
+        result = runner.invoke(app, ["translate", "missing-book", "--backend", "mock"])
+
+        assert result.exit_code == 1
+        assert "workspace not found" in result.output.lower()
+        assert not (Path("workspace") / "missing-book").exists()
+
+
+def test_translate_reports_missing_codex_without_creating_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with runner.isolated_filesystem():
+        root = Path(".")
+        book_id = "book-no-codex"
+        book_root = _prepare_book_workspace(root, book_id)
+        monkeypatch.setenv("PATH", "")
+
+        result = runner.invoke(app, ["translate", book_id, "--backend", "codex-cli"])
+
+        assert result.exit_code == 1
+        assert "not available in path" in result.output.lower()
+        assert not (book_root / "jobs").exists()
+        assert not (book_root / "translated" / "translated_chunks.jsonl").exists()

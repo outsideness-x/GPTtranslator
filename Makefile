@@ -1,16 +1,18 @@
-PYTHON ?= ./bin/python
-PIP ?= ./bin/pip
+VENV_DIR ?= .venv
+PYTHON ?= $(VENV_DIR)/bin/python
+PIP ?= $(VENV_DIR)/bin/pip
+CLI ?= $(VENV_DIR)/bin/gpttranslator
 
-.PHONY: dev-install test test-smoke lint format format-check typecheck check ci
+.PHONY: install dev-install test lint format format-check typecheck smoke check ci
+
+install:
+	./scripts/install.sh
 
 dev-install:
-	$(PIP) install -e '.[dev]'
+	./scripts/dev_install.sh
 
 test:
 	$(PYTHON) -m pytest -q
-
-test-smoke:
-	$(PYTHON) -m pytest -q tests/test_cli_smoke.py tests/test_integration_smoke_pipeline.py
 
 lint:
 	$(PYTHON) -m ruff check src tests
@@ -23,6 +25,11 @@ format-check:
 
 typecheck:
 	$(PYTHON) -m mypy src
+
+smoke:
+	$(CLI) --help
+	$(CLI) version
+	$(CLI) status
 
 check: lint typecheck test
 

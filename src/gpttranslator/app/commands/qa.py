@@ -7,6 +7,7 @@ import json
 import typer
 
 from ..core.config import load_config
+from ..core.logging import get_logger
 from ..core.manifest import load_book_manifest, save_book_manifest
 from ..core.paths import resolve_workspace_root
 from ..core.reporting import append_run_log, collect_book_run_summary, ensure_codex_logs, write_translation_summary
@@ -61,6 +62,7 @@ def register(app: typer.Typer) -> None:
         """Run QA checks on translated chunks."""
 
         config = load_config()
+        logger = get_logger("commands.qa")
         workspace_root = resolve_workspace_root(config.project_root, config.workspace_dir_name)
         book_root = workspace_root / book_id
 
@@ -149,8 +151,8 @@ def register(app: typer.Typer) -> None:
                     "summary_artifact": "output/translation_summary.md",
                 }
                 save_book_manifest(manifest_path, manifest)
-            except Exception:
-                pass
+            except Exception as exc:  # pragma: no cover - defensive manifest write protection
+                logger.warning("unable to update manifest after qa: %s", exc)
 
         typer.secho("QA completed", fg=typer.colors.GREEN)
         typer.echo(f"  Book ID                     : {book_id}")

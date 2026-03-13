@@ -149,6 +149,30 @@ def register(app: typer.Typer) -> None:
         workspace_root = resolve_workspace_root(config.project_root, config.workspace_dir_name)
         book_root = workspace_root / book_id
 
+        if not book_root.exists() or not book_root.is_dir():
+            typer.secho(f"Translate failed: book workspace not found: {book_root}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
+        try:
+            profile_name = _parse_profile_name(profile)
+            rewrite_level = _parse_rewrite_level(editorial_rewrite_level)
+            backend_name = parse_backend_name(backend)
+            backend_max_attempts = max_retries or config.default_max_retries
+            request = EconomyPlanRequest(
+                profile=profile_name,
+                max_context_entries=max_context_entries,
+                tm_first=tm_first,
+                no_editorial=no_editorial,
+                qa_on_risk_only=qa_on_risk_only,
+                reuse_cache=reuse_cache,
+                max_retries=max_retries,
+                adaptive_chunking=adaptive_chunking,
+                is_test_run=budget_only,
+            )
+        except ValueError as exc:
+            typer.secho(f"Translate failed: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
         append_run_log(
             book_root=book_root,
             stage="translate",
@@ -164,33 +188,6 @@ def register(app: typer.Typer) -> None:
         ensure_codex_logs(book_root)
 
         try:
-            backend_name = parse_backend_name(backend)
-            backend_max_attempts = max_retries or config.default_max_retries
-            selected_backend = build_translation_backend(
-                backend=backend_name,
-                codex_command=config.codex_command,
-                timeout_seconds=120,
-                max_attempts=backend_max_attempts,
-                dry_run=dry_run,
-            )
-            if backend_name == "codex-cli" and not budget_only:
-                if hasattr(selected_backend, "ensure_available") and not dry_run:
-                    selected_backend.ensure_available()
-
-            profile_name = _parse_profile_name(profile)
-            rewrite_level = _parse_rewrite_level(editorial_rewrite_level)
-            request = EconomyPlanRequest(
-                profile=profile_name,
-                max_context_entries=max_context_entries,
-                tm_first=tm_first,
-                no_editorial=no_editorial,
-                qa_on_risk_only=qa_on_risk_only,
-                reuse_cache=reuse_cache,
-                max_retries=max_retries,
-                adaptive_chunking=adaptive_chunking,
-                is_test_run=budget_only,
-            )
-
             data = load_book_economy_data(
                 project_root=config.project_root,
                 workspace_dir_name=config.workspace_dir_name,
@@ -198,7 +195,7 @@ def register(app: typer.Typer) -> None:
             )
             budget_report = estimate_book_budget(data=data, request=request)
             budget_path = write_budget_report(data=data, report=budget_report, request=request)
-        except (EconomyDataError, ValueError, BackendUnavailableError) as exc:
+        except (EconomyDataError, ValueError) as exc:
             append_run_log(
                 book_root=book_root,
                 stage="translate",
@@ -224,6 +221,26 @@ def register(app: typer.Typer) -> None:
                 book_id, budget_report.estimate, budget_path, selected=budget_report.selected_profile.name
             )
             return
+
+        try:
+            selected_backend = build_translation_backend(
+                backend=backend_name,
+                codex_command=config.codex_command,
+                timeout_seconds=120,
+                max_attempts=backend_max_attempts,
+                dry_run=dry_run,
+            )
+            if backend_name == "codex-cli" and hasattr(selected_backend, "ensure_available") and not dry_run:
+                selected_backend.ensure_available()
+        except BackendUnavailableError as exc:
+            append_run_log(
+                book_root=data.book_root,
+                stage="translate",
+                status="failed",
+                message=f"Translation backend unavailable: {exc}",
+            )
+            typer.secho(f"Translate failed: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
 
         try:
             result = build_economy_plan(data=data, request=request)
